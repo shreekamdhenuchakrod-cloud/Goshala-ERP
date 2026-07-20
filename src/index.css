@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-forest-50: #f2f8f4;
+  --color-forest-100: #e2efe7;
+  --color-forest-200: #c5dfd0;
+  --color-forest-300: #9ac7ad;
+  --color-forest-400: #6ca884;
+  --color-forest-500: #488c63;
+  --color-forest-600: #36704c;
+  --color-forest-650: #2e5c3e;
+  --color-forest-700: #2e593e;
+  --color-forest-750: #2c553a;
+  --color-forest-800: #264833;
+  --color-forest-900: #203c2c;
+
+  --color-saffron-50: #fdf9f2;
+  --color-saffron-100: #faf0dd;
+  --color-saffron-200: #f4dec1;
+  --color-saffron-300: #ebc298;
+  --color-saffron-400: #e0a16d;
+  --color-saffron-500: #d57e49;
+  --color-saffron-550: #db844d;
+  --color-saffron-600: #c36336;
+  --color-saffron-650: #b45128;
+  --color-saffron-700: #a34c2d;
+  --color-saffron-750: #933d25;
+  --color-saffron-800: #843b27;
+  --color-saffron-900: #6c3123;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 transition-colors duration-200;
+  }
+  html.dark body {
+    background-color: #0f172a;
+    color: #f8fafc;
+  }
+}
+
+/* Custom Scrollbar for modern dashboards */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.4);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.7);
+}
+
+/* Print Styles: Hide UI elements when printing reports or receipts */
+@media print {
+  .no-print, 
+  header, 
+  aside, 
+  button, 
+  select, 
+  input, 
+  label {
+    display: none !important;
+  }
+  
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  div.pl-64 {
+    padding-left: 0 !important;
+  }
+
+  div.flex {
+    display: block !important;
+  }
+
+  /* Center the printable card on the printed sheet */
+  #printable-receipt-card {
+    border: 3px double #2e593e !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 1.5rem !important;
+    margin: 2rem auto !important;
+  }
+}

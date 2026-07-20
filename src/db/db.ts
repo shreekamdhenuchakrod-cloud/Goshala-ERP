@@ -1,0 +1,522 @@
+import {
+  FinancialYear,
+  Ledger,
+  LedgerGroup,
+  CostCenter,
+  Cow,
+  CRMContact,
+  InventoryItem,
+  InventoryBatch,
+  StockTransaction,
+  BankAccount,
+  Voucher,
+  ERPConfig,
+  VoucherEntry,
+  MilkYieldEntry,
+  MilkSale,
+  Donation,
+  GovtGrant,
+  Employee,
+  AttendanceRecord,
+  PayrollEntry,
+  Loan,
+  DocumentRecord,
+  AuditLog,
+  VoucherStatus,
+  Role
+} from './schema';
+
+import {
+  SEED_FYS,
+  SEED_GROUPS,
+  SEED_LEDGERS,
+  SEED_COST_CENTERS,
+  SEED_COWS,
+  SEED_CONTACTS,
+  SEED_INVENTORY,
+  SEED_BANK_ACCOUNTS,
+  SEED_CONFIG,
+  SEED_VOUCHERS
+} from './seed';
+import { db } from './firebase';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+
+// Storage Helper
+const getStorageItem = <T>(key: string, defaultValue: T): T => {
+  const data = localStorage.getItem(key);
+  if (!data) return defaultValue;
+  try {
+    return JSON.parse(data) as T;
+  } catch {
+    return defaultValue;
+  }
+};
+
+const setStorageItem = <T>(key: string, value: T): void => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
+// Firestore Sync Helper
+const syncTableToFirestore = (name: string, data: any) => {
+  try {
+    const docRef = doc(db, 'goshala_erp', name);
+    setDoc(docRef, { items: data, updatedAt: Date.now() }, { merge: true }).catch(err => {
+      console.warn(`Firestore sync warning [${name}]:`, err?.message || err);
+    });
+  } catch (err) {
+    console.warn(`Firestore write exception [${name}]:`, err);
+  }
+};
+
+// Database class to manage everything client-side
+export class GoshalaDB {
+  static init() {
+    const seedVersion = 'v10';
+    const seeded = localStorage.getItem('goshala_erp_seeded');
+    if (!seeded || seeded !== seedVersion) {
+      console.log('Seeding Goshala ERP database version:', seedVersion);
+      
+      // Wipe old keys to prevent any dirty cache
+      const keys = [
+        'fys', 'groups', 'ledgers', 'cost_centers', 'cows', 'contacts',
+        'inventory', 'batches', 'stock_tx', 'bank_accounts', 'vouchers',
+        'milk_yields', 'milk_sales', 'donations', 'grants', 'employees',
+        'attendance', 'payroll', 'loans', 'documents', 'meetings',
+        'audit_logs', 'config'
+      ];
+      keys.forEach(k => localStorage.removeItem(`goshala_erp_${k}`));
+ 
+      // Clean default ledger opening/current balances to 0!
+      const cleanLedgers = SEED_LEDGERS.map(l => ({
+        ...l,
+        openingBalance: 0,
+        currentBalance: 0
+      }));
+
+      // Clean default bank account balances to 0!
+      const cleanBanks = SEED_BANK_ACCOUNTS.map(ba => ({
+        ...ba,
+        currentBalance: 0
+      }));
+
+      // Seed tables
+      setStorageItem('goshala_erp_fys', SEED_FYS);
+      setStorageItem('goshala_erp_groups', SEED_GROUPS);
+      setStorageItem('goshala_erp_ledgers', cleanLedgers);
+      setStorageItem('goshala_erp_cost_centers', SEED_COST_CENTERS);
+      setStorageItem('goshala_erp_cows', SEED_COWS);
+      setStorageItem('goshala_erp_contacts', []);
+      setStorageItem('goshala_erp_inventory', []);
+      setStorageItem('goshala_erp_batches', []);
+      setStorageItem('goshala_erp_stock_tx', []);
+      setStorageItem('goshala_erp_bank_accounts', cleanBanks);
+      setStorageItem('goshala_erp_vouchers', []);
+      setStorageItem('goshala_erp_loans', []);
+      setStorageItem('goshala_erp_config', SEED_CONFIG);
+ 
+      localStorage.setItem('goshala_erp_seeded', seedVersion);
+      this.recalculateLedgers();
+    }
+    this.initFirebaseSync();
+  }
+
+  static initFirebaseSync() {
+    if ((window as any)._firebase_sync_initialized) return;
+    (window as any)._firebase_sync_initialized = true;
+
+    const tables = [
+      'fys', 'groups', 'ledgers', 'cost_centers', 'cows', 'contacts',
+      'inventory', 'batches', 'stock_tx', 'bank_accounts', 'vouchers',
+      'milk_yields', 'milk_sales', 'donations', 'grants', 'employees',
+      'attendance', 'payroll', 'loans', 'documents', 'meetings',
+      'audit_logs', 'config', 'samiti_members'
+    ];
+
+    tables.forEach(tableName => {
+      try {
+        const docRef = doc(db, 'goshala_erp', tableName);
+        onSnapshot(docRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const remoteItems = snapshot.data()?.items;
+            if (remoteItems) {
+              const localItems = getStorageItem(`goshala_erp_${tableName}`, null);
+              if (JSON.stringify(localItems) !== JSON.stringify(remoteItems)) {
+                setStorageItem(`goshala_erp_${tableName}`, remoteItems);
+                window.dispatchEvent(new CustomEvent('goshala_db_updated', { detail: { table: tableName } }));
+              }
+            }
+          }
+        }, err => {
+          // Graceful catch if Firestore rules / DB not initialized yet
+        });
+      } catch (e) {
+        // Graceful catch
+      }
+    });
+  }
+
+  // General Accessors
+  static getTable<T>(name: string): T[] {
+    this.init();
+    const data = getStorageItem<T[]>(`goshala_erp_${name}`, []);
+    if (name === 'vouchers') {
+      (data as any).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }
+    return data;
+  }
+
+  static saveTable<T>(name: string, data: T[]): void {
+    setStorageItem(`goshala_erp_${name}`, data);
+    syncTableToFirestore(name, data);
+  }
+
+  // Recalculates ledger accounts from all POSTED vouchers
+  static recalculateLedgers() {
+    const ledgers = this.getTable<Ledger>('ledgers');
+    const costCenters = this.getTable<CostCenter>('cost_centers');
+    const bankAccounts = this.getTable<BankAccount>('bank_accounts');
+    const vouchers = this.getTable<Voucher>('vouchers');
+
+    // Reset balances to opening balance
+    ledgers.forEach(l => {
+      l.currentBalance = l.openingBalance;
+    });
+
+    costCenters.forEach(cc => {
+      cc.spentAmount = 0;
+    });
+
+    // Populate balances from posted vouchers
+    vouchers.forEach(v => {
+      if (v.status !== 'POSTED') return;
+
+      // Update Cost Centers
+      if (v.costCenterId) {
+        const cc = costCenters.find(c => c.id === v.costCenterId);
+        if (cc) {
+          // Add debit amounts if it is an expense voucher
+          const debitsSum = v.entries
+            .filter(e => e.isDebit)
+            .reduce((acc, curr) => acc + curr.amount, 0);
+          cc.spentAmount += debitsSum;
+        }
+      }
+
+      // Update Ledger balances
+      v.entries.forEach(entry => {
+        const ledger = ledgers.find(l => l.id === entry.ledgerId);
+        if (!ledger) return;
+
+        const isDebit = entry.isDebit;
+        const amount = entry.amount;
+
+        if (ledger.type === 'ASSET' || ledger.type === 'EXPENSE') {
+          ledger.currentBalance += isDebit ? amount : -amount;
+        } else {
+          ledger.currentBalance += isDebit ? -amount : amount;
+        }
+      });
+    });
+
+    // Sync bank balances
+    bankAccounts.forEach(ba => {
+      const ledger = ledgers.find(l => l.name === ba.bankName && l.groupId === 'g-current-assets');
+      if (ledger) {
+        ba.currentBalance = ledger.currentBalance;
+      }
+    });
+
+    this.saveTable('ledgers', ledgers);
+    this.saveTable('cost_centers', costCenters);
+    this.saveTable('bank_accounts', bankAccounts);
+  }
+
+  // Voucher operations
+  static saveVoucher(v: Voucher, activeUser: { name: string; role: any }) {
+    const vouchers = this.getTable<Voucher>('vouchers');
+    const config = getStorageItem<ERPConfig>('goshala_erp_config', SEED_CONFIG);
+
+    const index = vouchers.findIndex(item => item.id === v.id);
+
+    if (index >= 0) {
+      // Validate Lock status of current year
+      const fys = this.getTable<FinancialYear>('fys');
+      const fy = fys.find(item => item.id === v.fyId);
+      if (fy && fy.status === 'LOCKED') {
+        throw new Error('Voucher belongs to a locked Financial Year.');
+      }
+
+      v.auditTrail.push({
+        user: activeUser.name,
+        role: activeUser.role,
+        action: `Edited voucher details. Status: ${v.status}`,
+        timestamp: new Date().toISOString()
+      });
+      vouchers[index] = v;
+    } else {
+      // New Voucher
+      // Generate Voucher Number
+      const count = vouchers.filter(item => item.voucherType === v.voucherType).length + 1;
+      const typeCode = v.voucherType.substring(0, 3).toUpperCase();
+      v.voucherNumber = `V-${typeCode}-${String(count).padStart(4, '0')}`;
+      v.auditTrail = [{
+        user: activeUser.name,
+        role: activeUser.role,
+        action: 'Created Voucher',
+        timestamp: new Date().toISOString()
+      }];
+      vouchers.push(v);
+    }
+
+    this.saveTable('vouchers', vouchers);
+    this.recalculateLedgers();
+    this.logAction(activeUser.name, activeUser.role, 'SAVE_VOUCHER', `Voucher ${v.voucherNumber} saved with status ${v.status}`);
+  }
+
+  // Complete Financial Year Closing
+  static closeFinancialYear(fyId: string, newFyName: string, activeUser: { name: string; role: any }) {
+    const fys = this.getTable<FinancialYear>('fys');
+    const ledgers = this.getTable<Ledger>('ledgers');
+    const targetFy = fys.find(f => f.id === fyId);
+    if (!targetFy) throw new Error('Financial Year not found.');
+
+    // Step 1: Update status of current FY
+    targetFy.status = 'CLOSED';
+
+    // Step 2: Calculate Surplus/Deficit (Income - Expenses)
+    const incomeLedgers = ledgers.filter(l => l.type === 'INCOME');
+    const expenseLedgers = ledgers.filter(l => l.type === 'EXPENSE');
+
+    const totalIncome = incomeLedgers.reduce((sum, l) => sum + l.currentBalance, 0);
+    const totalExpense = expenseLedgers.reduce((sum, l) => sum + l.currentBalance, 0);
+    const surplus = totalIncome - totalExpense;
+
+    // Step 3: Create a new FY record
+    const yearParts = newFyName.split('-');
+    const startYr = parseInt(yearParts[0]);
+    const endYr = 2000 + parseInt(yearParts[1]); // e.g. 26 -> 2026
+    const newFyId = `fy-${newFyName}`;
+
+    // check if it exists
+    if (!fys.some(f => f.id === newFyId)) {
+      fys.push({
+        id: newFyId,
+        name: newFyName,
+        startDate: `${startYr}-04-01`,
+        endDate: `${endYr}-03-31`,
+        status: 'ACTIVE'
+      });
+    }
+
+    // Step 4: Carry Forward Balances
+    // Assets, Liabilities, and Capital accounts carry forward current balances as opening balance.
+    // Income and Expense accounts start at 0.
+    ledgers.forEach(l => {
+      if (l.type === 'ASSET' || l.type === 'LIABILITY' || l.type === 'CAPITAL') {
+        if (l.id === 'l-retained-earnings') {
+          l.openingBalance = l.currentBalance + surplus; // Transfer surplus to retained earnings
+        } else {
+          l.openingBalance = l.currentBalance;
+        }
+        l.currentBalance = l.openingBalance;
+      } else {
+        l.openingBalance = 0;
+        l.currentBalance = 0;
+      }
+    });
+
+    // Lock the old year to prevent editing
+    targetFy.status = 'LOCKED';
+
+    this.saveTable('fys', fys);
+    this.saveTable('ledgers', ledgers);
+
+    // Save configuration with new active FY
+    const config = getStorageItem<ERPConfig>('goshala_erp_config', SEED_CONFIG);
+    config.activeFyId = newFyId;
+    setStorageItem('goshala_erp_config', config);
+    syncTableToFirestore('config', config);
+
+    this.recalculateLedgers();
+    this.logAction(
+      activeUser.name,
+      activeUser.role,
+      'CLOSE_FY',
+      `Closed FY ${targetFy.name}, transferred Net Surplus: ${surplus.toFixed(2)} to Retained Earnings, launched FY ${newFyName}`
+    );
+  }
+
+  // Reopen financial year
+  static reopenFinancialYear(fyId: string, activeUser: { name: string; role: any }) {
+    const fys = this.getTable<FinancialYear>('fys');
+    const targetFy = fys.find(f => f.id === fyId);
+    if (!targetFy) throw new Error('Financial year not found.');
+    targetFy.status = 'ACTIVE';
+    this.saveTable('fys', fys);
+    this.logAction(activeUser.name, activeUser.role, 'REOPEN_FY', `Reopened Financial Year ${targetFy.name}`);
+  }
+
+  // FIFO Inventory issues
+  static issueStockFIFO(itemId: string, quantityToIssue: number, date: string, slipNumber: string, reference?: string) {
+    const batches = this.getTable<InventoryBatch>('batches');
+    const stockTx = this.getTable<StockTransaction>('stock_tx');
+
+    // Filter available batches for this item, sorted by dateReceived ascending (FIFO)
+    const itemBatches = batches
+      .filter(b => b.itemId === itemId && b.qtyRemaining > 0)
+      .sort((a, b) => new Date(a.dateReceived).getTime() - new Date(b.dateReceived).getTime());
+
+    let remainingToIssue = quantityToIssue;
+
+    for (const batch of itemBatches) {
+      if (remainingToIssue <= 0) break;
+
+      const qtyDeducted = Math.min(batch.qtyRemaining, remainingToIssue);
+      batch.qtyRemaining -= qtyDeducted;
+      remainingToIssue -= qtyDeducted;
+
+      // Log transaction
+      stockTx.push({
+        id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        itemId,
+        batchId: batch.id,
+        type: 'OUT',
+        qty: qtyDeducted,
+        rate: batch.purchaseRate,
+        date,
+        slipNumber,
+        reference
+      });
+    }
+
+    if (remainingToIssue > 0) {
+      // Stock shortage occurred (negative stock allowed but warning)
+      stockTx.push({
+        id: `tx-${Date.now()}-shortage`,
+        itemId,
+        type: 'OUT',
+        qty: remainingToIssue,
+        date,
+        slipNumber,
+        reference: `${reference ? reference + ' ' : ''}(Shortage Warning)`
+      });
+    }
+
+    this.saveTable('batches', batches);
+    this.saveTable('stock_tx', stockTx);
+
+    // Sync inventory stock count in system ledger if necessary (done dynamically in UI)
+  }
+
+  static receiveStock(itemId: string, supplierId: string, batchNumber: string, qty: number, rate: number, date: string, slipNumber: string, expiryDate?: string) {
+    const batches = this.getTable<InventoryBatch>('batches');
+    const stockTx = this.getTable<StockTransaction>('stock_tx');
+
+    const newBatch: InventoryBatch = {
+      id: `b-${Date.now()}`,
+      itemId,
+      batchNumber,
+      expiryDate,
+      supplierId,
+      purchaseRate: rate,
+      qtyReceived: qty,
+      qtyRemaining: qty,
+      dateReceived: date
+    };
+
+    batches.push(newBatch);
+
+    stockTx.push({
+      id: `tx-${Date.now()}`,
+      itemId,
+      batchId: newBatch.id,
+      type: 'IN',
+      qty,
+      rate,
+      date,
+      slipNumber,
+      reference: `Batch ${batchNumber}`
+    });
+
+    this.saveTable('batches', batches);
+    this.saveTable('stock_tx', stockTx);
+  }
+
+  // Audit scanning logs
+  static runOneClickAudit(fyId: string) {
+    const vouchers = this.getTable<Voucher>('vouchers').filter(v => v.fyId === fyId);
+    const ledgers = this.getTable<Ledger>('ledgers');
+
+    const missingBills: Voucher[] = [];
+    const duplicateEntries: { v1: Voucher; v2: Voucher }[] = [];
+    const highCashVouchers: Voucher[] = [];
+    let negativeCashDetected = false;
+
+    // 1. Missing Bills: payments above 5,000 without bills
+    vouchers.forEach(v => {
+      if (v.voucherType === 'PAYMENT' && v.status === 'POSTED') {
+        const totalAmount = v.entries
+          .filter(e => e.isDebit)
+          .reduce((sum, e) => sum + e.amount, 0);
+        if (totalAmount > 5000 && v.attachments.length === 0) {
+          missingBills.push(v);
+        }
+      }
+    });
+
+    // 2. Duplicate entries detection: matching date and total amount
+    for (let i = 0; i < vouchers.length; i++) {
+      const v1 = vouchers[i];
+      const sum1 = v1.entries.reduce((s, e) => s + e.amount, 0);
+      for (let j = i + 1; j < vouchers.length; j++) {
+        const v2 = vouchers[j];
+        const sum2 = v2.entries.reduce((s, e) => s + e.amount, 0);
+        if (v1.date === v2.date && sum1 === sum2 && v1.voucherType === v2.voucherType && v1.id !== v2.id) {
+          duplicateEntries.push({ v1, v2 });
+        }
+      }
+    }
+
+    // 3. High Cash Vouchers (fraud audit - Cash receipts/payments above 2,000 INR)
+    vouchers.forEach(v => {
+      const usesCash = v.entries.some(e => e.ledgerId === 'l-cash');
+      const totalAmt = v.entries.filter(e => e.isDebit).reduce((s, e) => s + e.amount, 0);
+      if (usesCash && totalAmt > 2000 && (v.voucherType === 'PAYMENT' || v.voucherType === 'RECEIPT')) {
+        highCashVouchers.push(v);
+      }
+    });
+
+    // 4. Negative cash validation: check cash balance
+    const cashLedger = ledgers.find(l => l.id === 'l-cash');
+    if (cashLedger && cashLedger.currentBalance < 0) {
+      negativeCashDetected = true;
+    }
+
+    return {
+      missingBills,
+      duplicateEntries,
+      highCashVouchers,
+      negativeCashDetected,
+      trialBalanceBalanced: true // Verified in UI reporting
+    };
+  }
+
+  // Audit logger
+  static logAction(user: string, role: Role, action: string, details: string) {
+    const logs = this.getTable<AuditLog>('audit_logs');
+    logs.push({
+      id: `log-${Date.now()}`,
+      userId: 'user-id',
+      username: user,
+      role,
+      action,
+      details,
+      timestamp: new Date().toISOString()
+    });
+    // Cap logs size at 500 for local storage efficiency
+    if (logs.length > 500) {
+      logs.shift();
+    }
+    this.saveTable('audit_logs', logs);
+  }
+}
