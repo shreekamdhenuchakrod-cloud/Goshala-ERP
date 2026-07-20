@@ -8,18 +8,28 @@ interface LanguageContextType {
   t: (key: string) => string;
 }
 
+export const formatBilingual = (str: string, lang: 'en' | 'hi'): string => {
+  if (!str) return '';
+  const match = str.match(/^(.*?)\s*\((.*?)\)$/);
+  if (match) {
+    const [, enText, hiText] = match;
+    return lang === 'hi' ? hiText.trim() : enText.trim();
+  }
+  return str;
+};
+
 const translations: Record<Language, Record<string, string>> = {
   en: {
     // Nav
     dashboard: 'Dashboard',
-    vouchers: 'Receipts & Payments (Vouchers)',
+    vouchers: 'Vouchers & Entries',
     contra: 'Bank & Cash Book',
     assets_loans: 'Assets & Loans',
     reports: 'CA Reports & Balance Sheet',
     settings: 'Backup & Settings',
     
     // Dashboard metrics
-    total_cows: 'Total Cows',
+    total_cows: 'Total Cattle',
     milk_production: 'Today\'s Milk Production',
     total_donations: 'Total Donations',
     today_income: 'Today\'s Income',
@@ -56,8 +66,8 @@ const translations: Record<Language, Record<string, string>> = {
     current_pin_label: 'Current PIN',
     new_pin_label: 'New 4-Digit PIN',
     save_pin_btn: 'Save New PIN',
-    wipe_data_title: 'Wipe All Data (Blank Slate)',
-    danger_zone_title: '🚨 Danger Zone (Security Warning)',
+    wipe_data_title: 'Wipe All Data',
+    danger_zone_title: '🚨 Danger Zone',
     cost_center_budget_label: 'Allocated Budget',
     spent_amount_label: 'Total Spent',
     financial_years_title: 'Financial Years Manager',
@@ -82,9 +92,9 @@ const translations: Record<Language, Record<string, string>> = {
     super_admin: 'Super Admin',
     president: 'President',
     secretary: 'Secretary',
-    treasurer: 'Treasurer',
+    treasurer: 'Goshala Treasurer',
     accountant: 'Accountant',
-    auditor: 'Auditor (CA)',
+    auditor: 'Auditor',
     employee: 'Employee',
     volunteer: 'Volunteer',
     switch_role: 'Switch Role'
@@ -93,10 +103,10 @@ const translations: Record<Language, Record<string, string>> = {
     // Nav
     dashboard: 'डैशबोर्ड',
     vouchers: 'आवक व भुगतान (वाउचर)',
-    contra: 'बैंक और नकद बही',
-    assets_loans: 'संपत्ति और ऋण',
-    reports: 'लेखा रिपोर्ट (सीए)',
-    settings: 'सेटिंग्स और बैकअप',
+    contra: 'बैंक एवं नकद बही',
+    assets_loans: 'संपत्ति एवं ऋण',
+    reports: 'लेखा रिपोर्ट एवं बैलेंस शीट',
+    settings: 'सेटिंग्स एवं बैकअप',
 
     // Dashboard metrics
     total_cows: 'कुल गौवंश',
@@ -117,18 +127,18 @@ const translations: Record<Language, Record<string, string>> = {
     active_financial_year: 'सक्रिय वित्तीय वर्ष',
 
     // Additional metrics labels
-    cash_in_hand: 'नकद शेष (कैश इन हैंड)',
+    cash_in_hand: 'कैश इन हैंड (नकद शेष)',
     bank_accounts_bal: 'बैंक शेष',
     fodder_stock_val: 'चारा स्टॉक मूल्य',
     fixed_assets_val: 'अचल संपत्ति',
-    ai_suggestions_title: 'कृत्रिम मेधा सुझाव',
-    ai_assistant_title: 'कृत्रिम मेधा लेखा सहायक (AI)',
-    ai_assistant_desc: 'खाते में सीधे एंट्री करने के लिए निर्देश टाइप करें',
-    ai_instruction_label: 'सीधे एंट्री करने के लिए निर्देश हिंदी में लिखें',
-    ai_parsed_preview: 'कृत्रिम मेधा परिणाम (प्रीव्यू)',
+    ai_suggestions_title: 'एआई सुझाव',
+    ai_assistant_title: 'एआई लेखा सहायक',
+    ai_assistant_desc: 'खाते में सीधे प्रविष्टि करने के लिए निर्देश लिखें',
+    ai_instruction_label: 'सीधे प्रविष्टि करने के लिए निर्देश लिखें',
+    ai_parsed_preview: 'एआई परिणाम (पूर्वावलोकन)',
     post_entry_btn: 'खाते में दर्ज करें',
     analyze_instructions_btn: 'निर्देश का विश्लेषण करें',
-    ai_notifications_title: 'लाइव सूचनाएं और सुरक्षा अलर्ट',
+    ai_notifications_title: 'लाइव सूचनाएं एवं सुरक्षा अलर्ट',
     
     // Settings & security
     add_payment_type_title: 'नया भुगतान प्रकार जोड़ें',
@@ -137,7 +147,7 @@ const translations: Record<Language, Record<string, string>> = {
     new_pin_label: 'नया पिन',
     save_pin_btn: 'सुरक्षा पिन सहेजें',
     wipe_data_title: 'खाता खाली करें (डेटा साफ करें)',
-    danger_zone_title: '🚨 डेंजर ज़ोन (खतरे का क्षेत्र)',
+    danger_zone_title: '🚨 डेंजर ज़ोन',
     cost_center_budget_label: 'आवंटित राशि',
     spent_amount_label: 'कुल व्यय',
     financial_years_title: 'वित्तीय वर्ष प्रबंधक',
@@ -162,7 +172,7 @@ const translations: Record<Language, Record<string, string>> = {
     super_admin: 'सुपर एडमिन',
     president: 'अध्यक्ष',
     secretary: 'सचिव',
-    treasurer: 'कोषाध्यक्ष',
+    treasurer: 'गौशाला कोषाध्यक्ष',
     accountant: 'मुनीम (एकाउंटेंट)',
     auditor: 'अंकेक्षक (सीए)',
     employee: 'कर्मचारी',

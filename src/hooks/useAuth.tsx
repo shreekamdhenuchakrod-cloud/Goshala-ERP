@@ -27,21 +27,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return {
       id: 'active-u',
       username: 'active_user',
-      name: 'Aditya Vardhan',
-      role: savedRole || 'SUPER_ADMIN'
+      name: 'Pankaj Patidar',
+      role: savedRole || 'TREASURER'
     };
   });
 
   const setRole = (role: Role) => {
     const names: Record<Role, string> = {
-      SUPER_ADMIN: 'Aditya Vardhan (Admin)',
-      PRESIDENT: 'Dr. Mahesh Chandra (President)',
-      SECRETARY: 'Yashwant Vyas (Secretary)',
-      TREASURER: 'Rajendra Prasad (Treasurer)',
-      ACCOUNTANT: 'Manoj Kumar Gupta (Accountant)',
-      AUDITOR: 'CA Shailesh Taparia (Auditor)',
-      EMPLOYEE: 'Ram Vilas (Employee)',
-      VOLUNTEER: 'Suresh Patel (Volunteer)'
+      SUPER_ADMIN: 'Pankaj Patidar (Treasurer)',
+      PRESIDENT: 'Pankaj Patidar (Treasurer)',
+      SECRETARY: 'Pankaj Patidar (Treasurer)',
+      TREASURER: 'Pankaj Patidar (Treasurer)',
+      ACCOUNTANT: 'Pankaj Patidar (Treasurer)',
+      AUDITOR: 'Pankaj Patidar (Treasurer)',
+      EMPLOYEE: 'Pankaj Patidar (Treasurer)',
+      VOLUNTEER: 'Pankaj Patidar (Treasurer)'
     };
     const updatedUser = { ...user, role, name: names[role] };
     setUser(updatedUser);

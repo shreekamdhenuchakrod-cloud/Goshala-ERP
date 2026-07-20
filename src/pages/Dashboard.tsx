@@ -4,7 +4,7 @@ import { Voucher, Ledger } from '../db/schema';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, Landmark, Wallet, DollarSign, FileSpreadsheet, PlusCircle } from 'lucide-react';
 
-import { useLanguage } from '../hooks/useLanguage';
+import { useLanguage, formatBilingual } from '../hooks/useLanguage';
 
 export const Dashboard: React.FC = () => {
   const { t } = useLanguage();
@@ -372,16 +372,16 @@ export const Dashboard: React.FC = () => {
       {/* Recent Transactions List */}
       <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
         <h3 className="text-sm font-bold text-slate-850 dark:text-white">Recent Transactions Log</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left text-xs border-collapse min-w-[600px]">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-semibold uppercase">
-                <th className="pb-3">Voucher #</th>
-                <th className="pb-3">Date</th>
-                <th className="pb-3">Type</th>
-                <th className="pb-3">Narration Remarks</th>
-                <th className="pb-3">Value Amount</th>
-                <th className="pb-3">Status</th>
+                <th className="pb-3">{t('date') === 'तारीख' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                <th className="pb-3">{t('date')}</th>
+                <th className="pb-3">{t('date') === 'तारीख' ? 'प्रकार' : 'Type'}</th>
+                <th className="pb-3">{t('narration')}</th>
+                <th className="pb-3">{t('amount')}</th>
+                <th className="pb-3">{t('status')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-750 dark:text-slate-350">

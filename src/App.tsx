@@ -11,6 +11,9 @@ import { AccountingReports } from './pages/AccountingReports';
 import { Settings } from './pages/Settings';
 import { GoshalaDB } from './db/db';
 
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from './db/firebase';
+
 const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
@@ -25,9 +28,19 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
     return () => window.removeEventListener('goshala_pin_updated', handlePinUpdated);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const correctPin = GoshalaDB.getAppPin();
+    let correctPin = GoshalaDB.getAppPin();
+    try {
+      const pinSnap = await getDoc(doc(db, 'goshala_erp', 'security_pin'));
+      if (pinSnap.exists() && pinSnap.data()?.pin) {
+        correctPin = pinSnap.data()!.pin;
+        localStorage.setItem('goshala_erp_app_pin', correctPin);
+      }
+    } catch (err) {
+      // Fallback to local
+    }
+
     if (pin === correctPin) {
       onUnlock();
     } else {

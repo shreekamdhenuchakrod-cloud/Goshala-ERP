@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { GoshalaDB } from '../db/db';
 import { Ledger, Voucher, CostCenter, CRMContact as Contact, VoucherType, ERPConfig } from '../db/schema';
 import { useAuth } from '../hooks/useAuth';
-import { useLanguage } from '../hooks/useLanguage';
+import { useLanguage, formatBilingual } from '../hooks/useLanguage';
 import { Plus, Search, X, Printer, Image, Trash2, Calendar, Eye, CreditCard, ChevronRight, FileText, CheckCircle } from 'lucide-react';
 
 export const VoucherSystem: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
 
   // App Configuration
   const [config, setConfig] = useState<ERPConfig>({
@@ -982,91 +982,75 @@ export const VoucherSystem: React.FC = () => {
           <div className="flex flex-col space-y-4 pb-4 border-b">
             
             {/* Upper filtering bar */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 w-full">
               
-              <div className="flex flex-col space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase">Search Text (खोज)</label>
-                <div className="relative">
+              <div className="flex flex-col space-y-1 w-full">
+                <label className="text-[10px] text-slate-400 font-bold uppercase">{language === 'hi' ? 'खोजें (Search)' : 'Search Text'}</label>
+                <div className="relative w-full">
                   <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search amount, remarks..."
+                    placeholder={language === 'hi' ? 'राशि, रिमार्क्स खोजें...' : 'Search amount, remarks...'}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 border rounded-xl bg-slate-50 dark:bg-slate-900 text-xs font-semibold w-56"
+                    className="pl-8 pr-3 py-1.5 border rounded-xl bg-slate-50 dark:bg-slate-900 text-xs font-semibold w-full"
                   />
                 </div>
               </div>
 
-              <div className="flex flex-col space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase">Particular Category (मद)</label>
+              <div className="flex flex-col space-y-1 w-full">
+                <label className="text-[10px] text-slate-400 font-bold uppercase">{language === 'hi' ? 'मद श्रेणी' : 'Particular Category'}</label>
                 <select
                   value={selectedCategoryFilter}
                   onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                  className="px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-bold"
+                  className="px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-bold w-full"
                 >
-                  <option value="">All Categories (सभी श्रेणियां)</option>
-                  <optgroup label="Expenses">
-                    {expenseLedgers.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  <option value="">{language === 'hi' ? 'सभी श्रेणियां' : 'All Categories'}</option>
+                  <optgroup label={language === 'hi' ? 'खर्च खाते' : 'Expenses'}>
+                    {expenseLedgers.map(l => <option key={l.id} value={l.id}>{formatBilingual(l.name, language)}</option>)}
                   </optgroup>
-                  <optgroup label="Incomes">
-                    {incomeLedgers.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  <optgroup label={language === 'hi' ? 'आय खाते' : 'Incomes'}>
+                    {incomeLedgers.map(l => <option key={l.id} value={l.id}>{formatBilingual(l.name, language)}</option>)}
                   </optgroup>
                 </select>
               </div>
 
-              <div className="flex flex-col space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase">Ledger (खाता)</label>
+              <div className="flex flex-col space-y-1 w-full">
+                <label className="text-[10px] text-slate-400 font-bold uppercase">{language === 'hi' ? 'खाता (Ledger)' : 'Ledger'}</label>
                 <select
                   value={selectedLedgerFilter}
                   onChange={(e) => setSelectedLedgerFilter(e.target.value)}
-                  className="px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-bold"
+                  className="px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-bold w-full"
                 >
-                  <option value="">All Ledgers (सभी खाते)</option>
-                  {ledgers.map(l => <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>)}
+                  <option value="">{language === 'hi' ? 'सभी खाते' : 'All Ledgers'}</option>
+                  {ledgers.map(l => <option key={l.id} value={l.id}>{formatBilingual(l.name, language)} [{l.code}]</option>)}
                 </select>
               </div>
 
-              <div className="flex flex-col space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase">Cost Center (खर्च केंद्र)</label>
+              <div className="flex flex-col space-y-1 w-full">
+                <label className="text-[10px] text-slate-400 font-bold uppercase">{language === 'hi' ? 'खर्च केंद्र' : 'Cost Center'}</label>
                 <select
                   value={selectedCcFilter}
                   onChange={(e) => setSelectedCcFilter(e.target.value)}
-                  className="px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-bold"
+                  className="px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-bold w-full"
                 >
-                  <option value="">All Divisions</option>
-                  {costCenters.map(cc => <option key={cc.id} value={cc.id}>{cc.name}</option>)}
+                  <option value="">{language === 'hi' ? 'सभी विभाग' : 'All Divisions'}</option>
+                  {costCenters.map(cc => <option key={cc.id} value={cc.id}>{formatBilingual(cc.name, language)}</option>)}
                 </select>
               </div>
 
-              <div className="flex flex-col space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase">Pay Mode (भुगतान मोड)</label>
+              <div className="flex flex-col space-y-1 w-full">
+                <label className="text-[10px] text-slate-400 font-bold uppercase">{language === 'hi' ? 'भुगतान मोड' : 'Pay Mode'}</label>
                 <select
                   value={selectedModeFilter}
                   onChange={(e) => setSelectedModeFilter(e.target.value)}
-                  className="px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-bold"
+                  className="px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-bold w-full"
                 >
-                  <option value="">All Modes</option>
-                  <option value="CASH">CASH Only</option>
-                  <option value="BANK_UPI">UPI Only</option>
-                  <option value="BANK_TRANSFER">Bank NetBanking</option>
-                  <option value="CHEQUE">Cheque Only</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col space-y-1">
-                <label className="text-[10px] text-slate-400 font-bold uppercase">Date Range (समयावधि)</label>
-                <select
-                  value={dateFilterRange}
-                  onChange={(e) => setDateFilterRange(e.target.value as any)}
-                  className="px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-bold"
-                >
-                  <option value="all">All Dates</option>
-                  <option value="today">Today</option>
-                  <option value="yesterday">Yesterday</option>
-                  <option value="week">Past Week</option>
-                  <option value="month">This Month</option>
-                  <option value="custom">Custom Range</option>
+                  <option value="">{language === 'hi' ? 'सभी मोड' : 'All Modes'}</option>
+                  <option value="CASH">{language === 'hi' ? 'केवल नकद (CASH)' : 'CASH Only'}</option>
+                  <option value="BANK_UPI">{language === 'hi' ? 'केवल यूपीआई (UPI)' : 'UPI Only'}</option>
+                  <option value="BANK_TRANSFER">{language === 'hi' ? 'नेजबैंकिंग (Bank)' : 'Bank NetBanking'}</option>
+                  <option value="CHEQUE">{language === 'hi' ? 'चेक (Cheque)' : 'Cheque Only'}</option>
                 </select>
               </div>
 
@@ -1076,12 +1060,12 @@ export const VoucherSystem: React.FC = () => {
             {dateFilterRange === 'custom' && (
               <div className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border max-w-md text-xs font-bold text-slate-500 animate-in slide-in-from-top-1 duration-150">
                 <div className="space-y-1">
-                  <label>Start Date</label>
+                  <label>{language === 'hi' ? 'प्रारंभ तिथि' : 'Start Date'}</label>
                   <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="px-2.5 py-1 border rounded-lg" />
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-300 mt-4" />
                 <div className="space-y-1">
-                  <label>End Date</label>
+                  <label>{language === 'hi' ? 'अंतिम तिथि' : 'End Date'}</label>
                   <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="px-2.5 py-1 border rounded-lg" />
                 </div>
               </div>
@@ -1090,19 +1074,18 @@ export const VoucherSystem: React.FC = () => {
           </div>
 
           {/* Vouchers Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-left text-xs border-collapse min-w-[750px]">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-750 text-slate-400 font-bold uppercase tracking-wider">
-                  <th className="pb-3 pl-3">Voucher #</th>
-                  <th className="pb-3">Date</th>
-                  <th className="pb-3">Type</th>
-                  <th className="pb-3">Cost Center</th>
-                  <th className="pb-3">Particular Account</th>
-                  <th className="pb-3">Contra Account</th>
-                  <th className="pb-3">Particulars / Narration</th>
-                  <th className="pb-3 text-right">Amount (₹)</th>
-                  <th className="pb-3 text-right pr-3">Actions</th>
+                  <th className="pb-3 pl-3">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                  <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
+                  <th className="pb-3">{language === 'hi' ? 'प्रकार' : 'Type'}</th>
+                  <th className="pb-3">{language === 'hi' ? 'खर्च केंद्र' : 'Cost Center'}</th>
+                  <th className="pb-3">{language === 'hi' ? 'खाता विवरण' : 'Particulars / Ledger'}</th>
+                  <th className="pb-3">{language === 'hi' ? 'विवरण' : 'Narration'}</th>
+                  <th className="pb-3">{language === 'hi' ? 'राशि (₹)' : 'Amount (₹)'}</th>
+                  <th className="pb-3 pr-3 text-right">{language === 'hi' ? 'कार्रवाई' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">

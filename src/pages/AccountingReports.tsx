@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { GoshalaDB } from '../db/db';
 import { Voucher, Ledger, Donation, GovtGrant, Cow } from '../db/schema';
-import { useLanguage } from '../hooks/useLanguage';
+import { useLanguage, formatBilingual } from '../hooks/useLanguage';
 import { Printer, Download, Eye, FileSpreadsheet, List, ArrowDownRight, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 
 export const AccountingReports: React.FC = () => {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [selectedReport, setSelectedReport] = useState<string>('trial_balance');
 
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -355,43 +355,45 @@ export const AccountingReports: React.FC = () => {
 
         {/* Dynamic Report Content Switcher */}
         
-        {/* REPORT 1: TRIAL BALANCE */}
+        {/* REPORT 1: TRIAL BALANCE SHEET */}
         {selectedReport === 'trial_balance' && (() => {
           const { rows, debitTotal, creditTotal } = calculateTrialBalance();
           return (
             <div className="space-y-4">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
-                    <th className="pb-3">Account Code</th>
-                    <th className="pb-3">Ledger Name</th>
-                    <th className="pb-3">Group Division</th>
-                    <th className="pb-3 text-right">Debit Bal (Dr)</th>
-                    <th className="pb-3 text-right">Credit Bal (Cr)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
-                  {rows.map(r => (
-                    <tr key={r.id} className={r.isSystem ? 'font-medium' : ''}>
-                      <td className="py-3">{r.code}</td>
-                      <td className="py-3 font-semibold text-slate-800 dark:text-slate-250">{r.name}</td>
-                      <td className="py-3 text-slate-400">General Account</td>
-                      <td className="py-3 text-right font-bold">{r.debit > 0 ? `₹${r.debit.toLocaleString()}` : '—'}</td>
-                      <td className="py-3 text-right font-bold">{r.credit > 0 ? `₹${r.credit.toLocaleString()}` : '—'}</td>
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
+                      <th className="pb-3">{language === 'hi' ? 'खाता कोड' : 'Account Code'}</th>
+                      <th className="pb-3">{language === 'hi' ? 'खाता नाम' : 'Ledger Name'}</th>
+                      <th className="pb-3">{language === 'hi' ? 'समूह श्रेणी' : 'Group Division'}</th>
+                      <th className="pb-3 text-right">{language === 'hi' ? 'डेबिट शेष (Dr)' : 'Debit Bal (Dr)'}</th>
+                      <th className="pb-3 text-right">{language === 'hi' ? 'क्रेडिट शेष (Cr)' : 'Credit Bal (Cr)'}</th>
                     </tr>
-                  ))}
-                  <tr className="border-t-2 border-double border-slate-200 dark:border-slate-600 font-extrabold text-sm text-slate-850 dark:text-white">
-                    <td colSpan={3} className="py-4">Trial Balance Totals</td>
-                    <td className="py-4 text-right text-forest-600">₹{debitTotal.toLocaleString()}</td>
-                    <td className="py-4 text-right text-forest-600">₹{creditTotal.toLocaleString()}</td>
-                  </tr>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                    {rows.map(r => (
+                      <tr key={r.id} className={r.isSystem ? 'font-medium' : ''}>
+                        <td className="py-3">{r.code}</td>
+                        <td className="py-3 font-semibold text-slate-800 dark:text-slate-250">{formatBilingual(r.name, language)}</td>
+                        <td className="py-3 text-slate-400">{language === 'hi' ? 'सामान्य खाता' : 'General Account'}</td>
+                        <td className="py-3 text-right font-bold">{r.debit > 0 ? `₹${r.debit.toLocaleString()}` : '—'}</td>
+                        <td className="py-3 text-right font-bold">{r.credit > 0 ? `₹${r.credit.toLocaleString()}` : '—'}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t-2 border-double border-slate-200 dark:border-slate-600 font-extrabold text-sm text-slate-850 dark:text-white">
+                      <td colSpan={3} className="py-4">{language === 'hi' ? 'ट्रायल बैलेंस कुल योग' : 'Trial Balance Totals'}</td>
+                      <td className="py-4 text-right text-forest-600">₹{debitTotal.toLocaleString()}</td>
+                      <td className="py-4 text-right text-forest-600">₹{creditTotal.toLocaleString()}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
               {debitTotal === creditTotal && (
                 <div className="bg-forest-50 dark:bg-forest-950/20 border border-forest-100 p-4 rounded-2xl flex items-center space-x-2 text-xs text-forest-800 dark:text-forest-300">
                   <CheckCircle2 className="w-5 h-5 text-forest-600" />
-                  <span>Variance balanced perfectly. Zero-discrepancy double-entry validation succeeded.</span>
+                  <span>{language === 'hi' ? 'ट्रायल बैलेंस पूर्णतः संतुलित है। कोई अंतर नहीं पाया गया।' : 'Variance balanced perfectly. Zero-discrepancy double-entry validation succeeded.'}</span>
                 </div>
               )}
             </div>
@@ -400,16 +402,16 @@ export const AccountingReports: React.FC = () => {
 
         {/* REPORT 2: DAY BOOK */}
         {selectedReport === 'day_book' && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-left text-xs border-collapse min-w-[650px]">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
-                  <th className="pb-3">Voucher #</th>
-                  <th className="pb-3">Date</th>
-                  <th className="pb-3">Ledger Entries</th>
-                  <th className="pb-3">Narration Remarks</th>
-                  <th className="pb-3 text-right">Debit</th>
-                  <th className="pb-3 text-right">Credit</th>
+                  <th className="pb-3">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                  <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
+                  <th className="pb-3">{language === 'hi' ? 'खाता प्रविष्टियां' : 'Ledger Entries'}</th>
+                  <th className="pb-3">{language === 'hi' ? 'विवरण' : 'Narration Remarks'}</th>
+                  <th className="pb-3 text-right">{language === 'hi' ? 'डेबिट (Dr)' : 'Debit'}</th>
+                  <th className="pb-3 text-right">{language === 'hi' ? 'क्रेडिट (Cr)' : 'Credit'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
@@ -420,22 +422,17 @@ export const AccountingReports: React.FC = () => {
                     <td className="py-4 space-y-1 max-w-xs">
                       {v.entries.map((e, idx) => (
                         <div key={idx} className="flex justify-between">
-                          <span className={e.isDebit ? 'font-semibold text-forest-700 dark:text-forest-400' : 'pl-4 text-slate-400'}>
-                            {getLedgerName(e.ledgerId)}
-                          </span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{formatBilingual(getLedgerName(e.ledgerId), language)}</span>
+                          <span className="text-slate-400 font-mono">({e.isDebit ? 'Dr' : 'Cr'})</span>
                         </div>
                       ))}
                     </td>
-                    <td className="py-4 max-w-xs truncate" title={v.narration}>{v.narration}</td>
-                    <td className="py-4 text-right space-y-1 font-bold text-forest-600">
-                      {v.entries.map((e, idx) => (
-                        <div key={idx} className="h-4">{e.isDebit ? `₹${e.amount.toLocaleString()}` : ''}</div>
-                      ))}
+                    <td className="py-4 text-slate-500 max-w-xs truncate" title={v.narration}>{v.narration}</td>
+                    <td className="py-4 text-right font-bold text-forest-600">
+                      ₹{v.entries.filter(e => e.isDebit).reduce((s, e) => s + e.amount, 0).toLocaleString()}
                     </td>
-                    <td className="py-4 text-right space-y-1 font-bold text-saffron-600">
-                      {v.entries.map((e, idx) => (
-                        <div key={idx} className="h-4">{!e.isDebit ? `₹${e.amount.toLocaleString()}` : ''}</div>
-                      ))}
+                    <td className="py-4 text-right font-bold text-saffron-600">
+                      ₹{v.entries.filter(e => !e.isDebit).reduce((s, e) => s + e.amount, 0).toLocaleString()}
                     </td>
                   </tr>
                 ))}
@@ -444,44 +441,45 @@ export const AccountingReports: React.FC = () => {
           </div>
         )}
 
-        {/* REPORT 3: GENERAL LEDGER */}
+        {/* REPORT 3: GENERAL LEDGER STATEMENT */}
         {selectedReport === 'general_ledger' && (
           <div className="space-y-4">
-            <div className="flex space-x-2 items-center text-xs">
-              <span className="font-bold text-slate-400">Filter Ledger Account:</span>
+            <div className="flex items-center space-x-3 text-xs font-bold text-slate-500">
+              <label>{language === 'hi' ? 'खाता चुनें:' : 'Select Ledger Account:'}</label>
               <select
                 value={targetLedgerId}
                 onChange={(e) => setTargetLedgerId(e.target.value)}
                 className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3.5 py-1.5 rounded-xl font-bold"
               >
-                {ledgers.map(l => <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>)}
+                {ledgers.map(l => <option key={l.id} value={l.id}>{formatBilingual(l.name, language)} [{l.code}]</option>)}
               </select>
             </div>
-
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
-                  <th className="pb-3">Date</th>
-                  <th className="pb-3">Voucher #</th>
-                  <th className="pb-3">Particulars (Contra Accounts)</th>
-                  <th className="pb-3 text-right">Debit (Dr)</th>
-                  <th className="pb-3 text-right">Credit (Cr)</th>
-                  <th className="pb-3 text-right">Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
-                {getLedgerStatement(targetLedgerId).map((entry, idx) => (
-                  <tr key={idx}>
-                    <td className="py-3">{entry.date}</td>
-                    <td className="py-3 font-bold">{entry.voucherNo}</td>
-                    <td className="py-3 font-semibold text-slate-800 dark:text-slate-200">{entry.particulars}</td>
-                    <td className="py-3 text-right font-bold text-forest-600">{entry.debit > 0 ? `₹${entry.debit.toLocaleString()}` : '—'}</td>
-                    <td className="py-3 text-right font-bold text-saffron-600">{entry.credit > 0 ? `₹${entry.credit.toLocaleString()}` : '—'}</td>
-                    <td className="py-3 text-right font-bold text-slate-800 dark:text-white">₹{entry.balance.toLocaleString()}</td>
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
+                    <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
+                    <th className="pb-3">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                    <th className="pb-3">{language === 'hi' ? 'खाता विवरण' : 'Particulars (Contra Accounts)'}</th>
+                    <th className="pb-3 text-right">{language === 'hi' ? 'डेबिट (Dr)' : 'Debit (Dr)'}</th>
+                    <th className="pb-3 text-right">{language === 'hi' ? 'क्रेडिट (Cr)' : 'Credit (Cr)'}</th>
+                    <th className="pb-3 text-right">{language === 'hi' ? 'शेष (Balance)' : 'Balance'}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                  {getLedgerStatement(targetLedgerId).map((entry, idx) => (
+                    <tr key={idx}>
+                      <td className="py-3">{entry.date}</td>
+                      <td className="py-3 font-bold">{entry.voucherNo}</td>
+                      <td className="py-3 font-semibold text-slate-800 dark:text-slate-200">{formatBilingual(entry.particulars, language)}</td>
+                      <td className="py-3 text-right font-bold text-forest-600">{entry.debit > 0 ? `₹${entry.debit.toLocaleString()}` : '—'}</td>
+                      <td className="py-3 text-right font-bold text-saffron-600">{entry.credit > 0 ? `₹${entry.credit.toLocaleString()}` : '—'}</td>
+                      <td className="py-3 text-right font-bold text-slate-800 dark:text-white">₹{entry.balance.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

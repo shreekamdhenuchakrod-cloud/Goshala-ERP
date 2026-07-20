@@ -191,7 +191,9 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleM
           </div>
           <div className="hidden xl:block text-left">
             <p className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-none">{user.name}</p>
-            <span className="text-[9px] text-forest-600 dark:text-forest-400 font-semibold uppercase tracking-wider block mt-0.5">Goshala Manager</span>
+            <span className="text-[9px] text-forest-600 dark:text-forest-400 font-semibold uppercase tracking-wider block mt-0.5">
+              {language === 'hi' ? 'गौशाला कोषाध्यक्ष' : 'Goshala Treasurer'}
+            </span>
           </div>
           {onLogout && (
             <button
