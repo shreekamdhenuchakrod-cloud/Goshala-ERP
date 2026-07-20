@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { GoshalaDB } from '../db/db';
-import { ERPConfig, Ledger, CostCenter, LedgerGroup, Voucher } from '../db/schema';
+import { ERPConfig, Ledger, CostCenter, LedgerGroup, Voucher, CRMContact } from '../db/schema';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
-import { Save, Download, UploadCloud, RotateCcw, Check, Trash, Plus, Edit3 } from 'lucide-react';
+import { Save, Download, UploadCloud, RotateCcw, Check, Trash, Plus, Edit3, UserCheck, Search } from 'lucide-react';
 
 interface SamitiMember {
   id: string;
@@ -19,7 +19,7 @@ export const Settings: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLanguage();
   
-  const [activeTab, setActiveTab] = useState<'org' | 'tax' | 'bank' | 'print' | 'ledgers' | 'cost_centers' | 'fys' | 'pay_modes' | 'security' | 'danger_zone' | 'members'>('org');
+  const [activeTab, setActiveTab] = useState<'org' | 'tax' | 'bank' | 'print' | 'ledgers' | 'cost_centers' | 'fys' | 'pay_modes' | 'security' | 'danger_zone' | 'members' | 'parties'>('org');
 
   // PIN states
   const [currentPinText, setCurrentPinText] = useState('');
@@ -44,6 +44,17 @@ export const Settings: React.FC = () => {
   const [mAddress, setMAddress] = useState('');
   const [mAadhar, setMAadhar] = useState('');
   const [mPan, setMPan] = useState('');
+
+  // Parties / CRM Contacts state
+  const [parties, setParties] = useState<CRMContact[]>([]);
+  const [editingParty, setEditingParty] = useState<CRMContact | null>(null);
+  const [partyName, setPartyName] = useState('');
+  const [partyType, setPartyType] = useState<'DONOR' | 'CUSTOMER' | 'VENDOR' | 'VOLUNTEER'>('DONOR');
+  const [partyPhone, setPartyPhone] = useState('');
+  const [partyAddress, setPartyAddress] = useState('');
+  const [partyPan, setPartyPan] = useState('');
+  const [partyAadhar, setPartyAadhar] = useState('');
+  const [partySearch, setPartySearch] = useState('');
 
   // Financial Years state
   const [fys, setFys] = useState<any[]>([]);
@@ -151,6 +162,8 @@ export const Settings: React.FC = () => {
     setBankBalances(bals);
 
     setFys(GoshalaDB.getTable<any>('fys'));
+    setMembers(GoshalaDB.getTable<SamitiMember>('samiti_members'));
+    setParties(GoshalaDB.getTable<CRMContact>('contacts'));
     const modes = table[0]?.paymentModes || ['CASH', 'BANK_UPI', 'BANK_TRANSFER', 'CHEQUE'];
     setPaymentModes(modes);
     setMembers(GoshalaDB.getTable<SamitiMember>('samiti_members'));
@@ -266,6 +279,60 @@ export const Settings: React.FC = () => {
       GoshalaDB.saveTable('samiti_members', updated);
       setMembers(updated);
       alert('Member deleted!');
+    });
+  };
+
+  // Parties Handlers
+  const resetPartyForm = () => {
+    setEditingParty(null);
+    setPartyName(''); setPartyType('DONOR'); setPartyPhone('');
+    setPartyAddress(''); setPartyPan(''); setPartyAadhar('');
+  };
+
+  const handleSaveParty = () => {
+    if (!partyName) { alert('Party Name (पक्षकार नाम) is required!'); return; }
+    const all = GoshalaDB.getTable<CRMContact>('contacts');
+    if (editingParty) {
+      const updated = all.map(p => p.id === editingParty.id
+        ? { ...p, name: partyName, type: partyType, phone: partyPhone, address: partyAddress, pan: partyPan, aadhar: partyAadhar }
+        : p);
+      GoshalaDB.saveTable('contacts', updated);
+    } else {
+      const newP: CRMContact = {
+        id: `c-${Date.now()}`,
+        name: partyName,
+        type: partyType,
+        phone: partyPhone,
+        address: partyAddress,
+        pan: partyPan,
+        aadhar: partyAadhar,
+        outstandingBalance: 0,
+        communicationHistory: []
+      };
+      GoshalaDB.saveTable('contacts', [...all, newP]);
+    }
+    setParties(GoshalaDB.getTable<CRMContact>('contacts'));
+    resetPartyForm();
+    alert(editingParty ? 'Party updated successfully!' : 'Party created successfully!');
+  };
+
+  const handleEditParty = (p: CRMContact) => {
+    setEditingParty(p);
+    setPartyName(p.name);
+    setPartyType(p.type || 'DONOR');
+    setPartyPhone(p.phone || '');
+    setPartyAddress(p.address || '');
+    setPartyPan(p.pan || '');
+    setPartyAadhar(p.aadhar || '');
+    setActiveTab('parties');
+  };
+
+  const handleDeleteParty = (id: string) => {
+    requirePin(() => {
+      const updated = GoshalaDB.getTable<CRMContact>('contacts').filter(p => p.id !== id);
+      GoshalaDB.saveTable('contacts', updated);
+      setParties(updated);
+      alert('Party deleted successfully!');
     });
   };
 
@@ -676,6 +743,14 @@ export const Settings: React.FC = () => {
           Samiti Members (समिति सदस्य)
         </button>
         <button
+          onClick={() => setActiveTab('parties')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            activeTab === 'parties' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
+          }`}
+        >
+          Parties / Contacts (पक्षकार / व्यक्ति)
+        </button>
+        <button
           onClick={() => setActiveTab('security')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
             activeTab === 'security' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
@@ -726,9 +801,33 @@ export const Settings: React.FC = () => {
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
+                            const img = new Image();
                             const reader = new FileReader();
                             reader.onload = (ev) => {
-                              setConfig({ ...config, logoUrl: ev.target?.result as string });
+                              img.src = ev.target?.result as string;
+                              img.onload = () => {
+                                const canvas = document.createElement('canvas');
+                                const MAX_SIZE = 250;
+                                let width = img.width;
+                                let height = img.height;
+                                if (width > height) {
+                                  if (width > MAX_SIZE) {
+                                    height *= MAX_SIZE / width;
+                                    width = MAX_SIZE;
+                                  }
+                                } else {
+                                  if (height > MAX_SIZE) {
+                                    width *= MAX_SIZE / height;
+                                    height = MAX_SIZE;
+                                  }
+                                }
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext('2d');
+                                ctx?.drawImage(img, 0, 0, width, height);
+                                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                                setConfig(prev => ({ ...prev, logoUrl: compressedBase64 }));
+                              };
                             };
                             reader.readAsDataURL(file);
                           }}
@@ -1718,6 +1817,168 @@ export const Settings: React.FC = () => {
                             </td>
                           </tr>
                         ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: PARTIES / CONTACTS */}
+          {activeTab === 'parties' && (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-6">
+                <h3 className="font-extrabold text-base text-slate-850 dark:text-white">
+                  {editingParty ? '✏️ Edit Party (पक्षकार संपादित करें)' : '➕ Add New Party / Contact (नया पक्षकार जोड़ें)'}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-500">Party Name (पक्षकार / व्यक्ति का नाम) *</label>
+                    <input
+                      type="text"
+                      value={partyName}
+                      onChange={e => setPartyName(e.target.value)}
+                      placeholder="e.g. Ramesh Kumar, Singhal Trading"
+                      className="w-full px-3 py-2 border rounded-xl font-normal text-slate-800 dark:text-white dark:bg-slate-900 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-500">Party Type (प्रकार) *</label>
+                    <select
+                      value={partyType}
+                      onChange={e => setPartyType(e.target.value as any)}
+                      className="w-full px-3 py-2 border rounded-xl font-semibold text-slate-800 dark:text-white dark:bg-slate-900 text-xs"
+                    >
+                      <option value="DONOR">DONOR (दानदाता)</option>
+                      <option value="VENDOR">VENDOR (विक्रेता / आपूर्तिकर्ता)</option>
+                      <option value="CUSTOMER">CUSTOMER (ग्राहक / खरीदार)</option>
+                      <option value="VOLUNTEER">VOLUNTEER (सेवक / कार्यकर्ता)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-500">Mobile No. (मोबाइल नंबर)</label>
+                    <input
+                      type="text"
+                      value={partyPhone}
+                      onChange={e => setPartyPhone(e.target.value)}
+                      placeholder="9876543210"
+                      className="w-full px-3 py-2 border rounded-xl font-normal text-slate-800 dark:text-white dark:bg-slate-900 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-500">PAN Number (पैन)</label>
+                    <input
+                      type="text"
+                      value={partyPan}
+                      onChange={e => setPartyPan(e.target.value)}
+                      placeholder="ABCDE1234F"
+                      className="w-full px-3 py-2 border rounded-xl font-normal text-slate-800 dark:text-white dark:bg-slate-900 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-500">Aadhar Number (आधार)</label>
+                    <input
+                      type="text"
+                      value={partyAadhar}
+                      onChange={e => setPartyAadhar(e.target.value)}
+                      placeholder="1234 5678 9012"
+                      className="w-full px-3 py-2 border rounded-xl font-normal text-slate-800 dark:text-white dark:bg-slate-900 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-500">Address (पता)</label>
+                    <input
+                      type="text"
+                      value={partyAddress}
+                      onChange={e => setPartyAddress(e.target.value)}
+                      placeholder="Village, Town, District"
+                      className="w-full px-3 py-2 border rounded-xl font-normal text-slate-800 dark:text-white dark:bg-slate-900 text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="flex space-x-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveParty}
+                    className="px-5 py-2.5 bg-forest-600 hover:bg-forest-750 text-white font-bold rounded-xl text-xs shadow-xs"
+                  >
+                    {editingParty ? '✅ Update Party' : '➕ Add Party'}
+                  </button>
+                  {editingParty && (
+                    <button type="button" onClick={resetPartyForm} className="px-5 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-white font-bold rounded-xl text-xs">
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Parties List Table */}
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <h3 className="font-extrabold text-sm text-slate-850 dark:text-white">All Managed Parties ({parties.length})</h3>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search party name / mobile..."
+                      value={partySearch}
+                      onChange={e => setPartySearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-1.5 border rounded-xl text-xs font-normal bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+                    />
+                  </div>
+                </div>
+
+                {parties.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic py-4 text-center">No parties registered yet. Use the form above to add a party.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-semibold uppercase text-[10px]">
+                          <th className="pb-3">Party Name (पक्षकार)</th>
+                          <th className="pb-3">Type (प्रकार)</th>
+                          <th className="pb-3">Mobile (मोबाइल)</th>
+                          <th className="pb-3">PAN</th>
+                          <th className="pb-3">Address (पता)</th>
+                          <th className="pb-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                        {parties
+                          .filter(p => p.name.toLowerCase().includes(partySearch.toLowerCase()) || (p.phone && p.phone.includes(partySearch)))
+                          .map(p => (
+                            <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
+                              <td className="py-3 font-bold text-slate-850 dark:text-white flex items-center space-x-2">
+                                <span className="w-6 h-6 rounded-full bg-forest-50 dark:bg-forest-900/40 text-forest-700 dark:text-forest-400 font-bold flex items-center justify-center text-[10px]">
+                                  {p.name.charAt(0).toUpperCase()}
+                                </span>
+                                <span>{p.name}</span>
+                              </td>
+                              <td className="py-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                  p.type === 'DONOR' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' :
+                                  p.type === 'VENDOR' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' :
+                                  'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300'
+                                }`}>
+                                  {p.type}
+                                </span>
+                              </td>
+                              <td className="py-3 font-mono">{p.phone || '—'}</td>
+                              <td className="py-3 font-mono uppercase">{p.pan || '—'}</td>
+                              <td className="py-3 max-w-[150px] truncate" title={p.address}>{p.address || '—'}</td>
+                              <td className="py-3 text-right space-x-1.5">
+                                <button
+                                  onClick={() => handleEditParty(p)}
+                                  className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-bold text-[10px]"
+                                >Edit</button>
+                                <button
+                                  onClick={() => handleDeleteParty(p.id)}
+                                  className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded font-bold text-[10px]"
+                                >Delete</button>
+                              </td>
+                            </tr>
+                          ))}
                       </tbody>
                     </table>
                   </div>

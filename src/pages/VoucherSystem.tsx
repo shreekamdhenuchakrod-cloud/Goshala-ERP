@@ -204,6 +204,61 @@ export const VoucherSystem: React.FC = () => {
     alert(`Party "${quickContactName}" created successfully!`);
   };
 
+  // Quick Ledger Creator state & handlers
+  const [showQuickLedgerModal, setShowQuickLedgerModal] = useState(false);
+  const [quickLedgerType, setQuickLedgerType] = useState<'EXPENSE' | 'BANK_CASH' | 'INCOME'>('EXPENSE');
+  const [quickLedgerName, setQuickLedgerName] = useState('');
+  const [quickLedgerCode, setQuickLedgerCode] = useState('');
+
+  const handleOpenQuickLedger = (type: 'EXPENSE' | 'BANK_CASH' | 'INCOME') => {
+    setQuickLedgerType(type);
+    setQuickLedgerName('');
+    setQuickLedgerCode(`L-${Math.floor(100 + Math.random() * 900)}`);
+    setShowQuickLedgerModal(true);
+  };
+
+  const handleSaveQuickLedger = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickLedgerName) return;
+
+    const allLedgers = GoshalaDB.getTable<Ledger>('ledgers');
+    const newId = `l-${Date.now()}`;
+    
+    let groupId = 'g-indirect-expenses';
+    let ledgerType: 'EXPENSE' | 'INCOME' | 'ASSET' | 'LIABILITY' | 'CAPITAL' = 'EXPENSE';
+    if (quickLedgerType === 'INCOME') {
+      groupId = 'g-indirect-income';
+      ledgerType = 'INCOME';
+    } else if (quickLedgerType === 'BANK_CASH') {
+      groupId = 'g-current-assets';
+      ledgerType = 'ASSET';
+    }
+
+    const newLedger: Ledger = {
+      id: newId,
+      code: quickLedgerCode || `L-${Date.now().toString().slice(-4)}`,
+      name: quickLedgerName,
+      groupId: groupId,
+      type: ledgerType,
+      openingBalance: 0,
+      currentBalance: 0,
+      isSystem: false
+    };
+
+    const updated = [...allLedgers, newLedger];
+    GoshalaDB.saveTable('ledgers', updated);
+    setLedgers(updated);
+    
+    if (quickLedgerType === 'EXPENSE' || quickLedgerType === 'INCOME') {
+      setSelectedParticular(newId);
+    } else if (quickLedgerType === 'BANK_CASH') {
+      setSelectedCashBank(newId);
+    }
+
+    setShowQuickLedgerModal(false);
+    alert(`Account "${quickLedgerName}" created successfully!`);
+  };
+
   // Vouchers form submit
   const handleCreateVoucher = (e: React.FormEvent) => {
     e.preventDefault();
@@ -728,17 +783,26 @@ export const VoucherSystem: React.FC = () => {
             <div className="p-6 bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl border grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-bold text-slate-500">
               
               <div className="space-y-1.5">
-                <label>
-                  {vType === 'RECEIPT' && "पैसा किस मद से आया? (Source of Income)"}
-                  {vType === 'PAYMENT' && "पैसा कहाँ खर्च हुआ? (Expense Account)"}
-                  {vType === 'CONTRA' && "Transfer To (जमा खाता - Cash/Bank)"}
-                  {vType === 'JOURNAL' && "Debit Account (Dr)"}
-                </label>
+                <div className="flex justify-between items-center">
+                  <label>
+                    {vType === 'RECEIPT' && "पैसा किस मद से आया? (Source of Income)"}
+                    {vType === 'PAYMENT' && "पैसा कहाँ खर्च हुआ? (Expense Account)"}
+                    {vType === 'CONTRA' && "Transfer To (जमा खाता - Cash/Bank)"}
+                    {vType === 'JOURNAL' && "Debit Account (Dr)"}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenQuickLedger(vType === 'RECEIPT' ? 'INCOME' : 'EXPENSE')}
+                    className="text-[10px] bg-forest-50 hover:bg-forest-100 dark:bg-slate-800 text-forest-700 dark:text-forest-400 font-bold px-2 py-0.5 rounded-md border border-forest-200 dark:border-slate-700 shadow-2xs transition"
+                  >
+                    + Quick Add
+                  </button>
+                </div>
                 <select
                   value={selectedParticular}
                   required
                   onChange={(e) => setSelectedParticular(e.target.value)}
-                  className="w-full px-3 py-2.5 border rounded-xl bg-white dark:bg-slate-900 text-slate-850 dark:text-slate-100"
+                  className="w-full px-3 py-2.5 border rounded-xl bg-white dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
                 >
                   <option value="">Choose Account Ledger</option>
                   {vType === 'PAYMENT' && expenseLedgers.map(l => (
@@ -757,17 +821,26 @@ export const VoucherSystem: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label>
-                  {vType === 'RECEIPT' && "पैसा कहाँ आया? (Deposit To - Cash/Bank)"}
-                  {vType === 'PAYMENT' && "पैसा कहाँ से गया? (Pay From - Cash/Bank)"}
-                  {vType === 'CONTRA' && "Transfer From (निकासी खाता - Cash/Bank)"}
-                  {vType === 'JOURNAL' && "Credit Account (Cr)"}
-                </label>
+                <div className="flex justify-between items-center">
+                  <label>
+                    {vType === 'RECEIPT' && "पैसा कहाँ आया? (Deposit To - Cash/Bank)"}
+                    {vType === 'PAYMENT' && "पैसा कहाँ से गया? (Pay From - Cash/Bank)"}
+                    {vType === 'CONTRA' && "Transfer From (निकासी खाता - Cash/Bank)"}
+                    {vType === 'JOURNAL' && "Credit Account (Cr)"}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenQuickLedger('BANK_CASH')}
+                    className="text-[10px] bg-forest-50 hover:bg-forest-100 dark:bg-slate-800 text-forest-700 dark:text-forest-400 font-bold px-2 py-0.5 rounded-md border border-forest-200 dark:border-slate-700 shadow-2xs transition"
+                  >
+                    + Quick Add
+                  </button>
+                </div>
                 <select
                   value={selectedCashBank}
                   required
                   onChange={(e) => setSelectedCashBank(e.target.value)}
-                  className="w-full px-3 py-2.5 border rounded-xl bg-white dark:bg-slate-900 text-slate-850 dark:text-slate-100"
+                  className="w-full px-3 py-2.5 border rounded-xl bg-white dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
                 >
                   <option value="">Choose Ledger Account</option>
                   {vType === 'JOURNAL' ? ledgers.map(l => (
@@ -781,12 +854,18 @@ export const VoucherSystem: React.FC = () => {
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <label>Party Name (पक्षकार / व्यक्ति)</label>
-                  <button type="button" onClick={handleAddNewContact} className="text-[10px] text-forest-650 hover:underline">+ Quick Add</button>
+                  <button
+                    type="button"
+                    onClick={handleAddNewContact}
+                    className="text-[10px] bg-indigo-50 hover:bg-indigo-100 dark:bg-slate-800 text-indigo-700 dark:text-indigo-400 font-bold px-2 py-0.5 rounded-md border border-indigo-200 dark:border-slate-700 shadow-2xs transition"
+                  >
+                    + Quick Add
+                  </button>
                 </div>
                 <select
                   value={selectedContactId}
                   onChange={(e) => setSelectedContactId(e.target.value)}
-                  className="w-full px-3 py-2.5 border rounded-xl bg-white dark:bg-slate-900 text-slate-855 dark:text-slate-100"
+                  className="w-full px-3 py-2.5 border rounded-xl bg-white dark:bg-slate-900 text-slate-855 dark:text-slate-100 font-normal"
                 >
                   <option value="">Select contact (Optional)</option>
                   {contacts.map(c => (
@@ -1186,9 +1265,53 @@ export const VoucherSystem: React.FC = () => {
         </div>
       )}
 
-      {/* PIN Verification overlay modal */}
+      {/* QUICK LEDGER CREATOR MODAL */}
+      {showQuickLedgerModal && (
+        <div className="fixed inset-0 bg-slate-950/45 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl max-w-sm w-full space-y-4">
+            <h3 className="text-slate-850 dark:text-white font-extrabold text-sm text-center">
+              {quickLedgerType === 'EXPENSE' && '➕ Quick Add Expense Account (खर्च खाता जोड़ें)'}
+              {quickLedgerType === 'INCOME' && '➕ Quick Add Income Account (आय खाता जोड़ें)'}
+              {quickLedgerType === 'BANK_CASH' && '➕ Quick Add Cash/Bank Account (नकद/बैंक खाता जोड़ें)'}
+            </h3>
+            <form onSubmit={handleSaveQuickLedger} className="space-y-3 text-xs font-bold text-slate-500">
+              <div className="space-y-1">
+                <label>Account Name (खाते का नाम) *</label>
+                <input
+                  type="text"
+                  required
+                  value={quickLedgerName}
+                  onChange={(e) => setQuickLedgerName(e.target.value)}
+                  placeholder="e.g. Labor Expenses, HDFC Bank, Chara Purchase"
+                  className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
+                />
+              </div>
+              <div className="space-y-1">
+                <label>Account Code (खाता कोड)</label>
+                <input
+                  type="text"
+                  value={quickLedgerCode}
+                  onChange={(e) => setQuickLedgerCode(e.target.value)}
+                  placeholder="L-101"
+                  className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
+                />
+              </div>
+              <div className="flex space-x-2 pt-2">
+                <button type="button" onClick={() => setShowQuickLedgerModal(false)} className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs">
+                  Cancel
+                </button>
+                <button type="submit" className="flex-1 py-2.5 bg-forest-600 hover:bg-forest-750 text-white font-bold rounded-xl text-xs shadow-xs">
+                  Save Account
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SECURITY PIN PROMPTS MODAL */}
       {pinPromptAction && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border shadow-xl max-w-sm w-full space-y-4">
             <h3 className="text-slate-850 dark:text-white font-bold text-sm text-center">Security PIN Required</h3>
             <p className="text-slate-500 text-xs text-center">Enter your 4-digit PIN to authenticate this operation.</p>
@@ -1201,12 +1324,14 @@ export const VoucherSystem: React.FC = () => {
               className="w-full text-center tracking-[1em] text-xl font-bold px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100"
             />
             {pinError && <p className="text-red-500 text-xs text-center font-bold">Incorrect Security PIN! Try again.</p>}
-            <div className="flex space-x-2">
-              <button type="button" onClick={() => setPinPromptAction(null)} className="flex-1 py-2 border rounded-xl text-xs font-bold">Cancel</button>
+            <div className="flex space-x-3">
+              <button type="button" onClick={() => setPinPromptAction(null)} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold">
+                Cancel
+              </button>
               <button
                 type="button"
                 onClick={() => {
-                  const currentPin = localStorage.getItem('goshala_erp_app_pin') || '1234';
+                  const currentPin = GoshalaDB.getAppPin();
                   if (pinInput === currentPin) {
                     const actionToExec = pinPromptAction;
                     setPinPromptAction(null);
@@ -1215,7 +1340,7 @@ export const VoucherSystem: React.FC = () => {
                     setPinError(true);
                   }
                 }}
-                className="flex-1 py-2 bg-red-650 text-white rounded-xl text-xs font-bold"
+                className="flex-1 py-2.5 bg-forest-600 hover:bg-forest-750 text-white rounded-xl text-xs font-bold shadow-md"
               >
                 Verify & Proceed
               </button>
