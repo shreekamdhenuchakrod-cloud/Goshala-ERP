@@ -57,62 +57,72 @@ const setStorageItem = <T>(key: string, value: T): void => {
 };
 
 // Firestore Sync Helper
+const notifySyncStatus = (status: 'synced' | 'syncing' | 'offline') => {
+  (window as any)._goshala_sync_status = status;
+  window.dispatchEvent(new CustomEvent('goshala_sync_status', { detail: { status } }));
+};
+
 const syncTableToFirestore = (name: string, data: any) => {
   try {
+    notifySyncStatus('syncing');
     const docRef = doc(db, 'goshala_erp', name);
-    setDoc(docRef, { items: data, updatedAt: Date.now() }, { merge: true }).catch(err => {
-      console.warn(`Firestore sync warning [${name}]:`, err?.message || err);
-    });
+    setDoc(docRef, { items: data, updatedAt: Date.now() }, { merge: true })
+      .then(() => notifySyncStatus('synced'))
+      .catch(err => {
+        console.warn(`Firestore sync warning [${name}]:`, err?.message || err);
+        notifySyncStatus('offline');
+      });
   } catch (err) {
     console.warn(`Firestore write exception [${name}]:`, err);
+    notifySyncStatus('offline');
   }
 };
 
 // Database class to manage everything client-side
 export class GoshalaDB {
+  static getAppPin(): string {
+    return localStorage.getItem('goshala_erp_app_pin') || '1234';
+  }
+
+  static setAppPin(newPin: string): void {
+    localStorage.setItem('goshala_erp_app_pin', newPin);
+    try {
+      notifySyncStatus('syncing');
+      const docRef = doc(db, 'goshala_erp', 'security_pin');
+      setDoc(docRef, { pin: newPin, updatedAt: Date.now() }, { merge: true })
+        .then(() => notifySyncStatus('synced'))
+        .catch(() => notifySyncStatus('offline'));
+    } catch {
+      notifySyncStatus('offline');
+    }
+  }
+
   static init() {
-    const seedVersion = 'v10';
+    const seedVersion = 'v11';
     const seeded = localStorage.getItem('goshala_erp_seeded');
     if (!seeded || seeded !== seedVersion) {
-      console.log('Seeding Goshala ERP database version:', seedVersion);
+      console.log('Initializing Goshala ERP baseline version:', seedVersion);
       
-      // Wipe old keys to prevent any dirty cache
-      const keys = [
-        'fys', 'groups', 'ledgers', 'cost_centers', 'cows', 'contacts',
-        'inventory', 'batches', 'stock_tx', 'bank_accounts', 'vouchers',
-        'milk_yields', 'milk_sales', 'donations', 'grants', 'employees',
-        'attendance', 'payroll', 'loans', 'documents', 'meetings',
-        'audit_logs', 'config'
-      ];
-      keys.forEach(k => localStorage.removeItem(`goshala_erp_${k}`));
- 
-      // Clean default ledger opening/current balances to 0!
       const cleanLedgers = SEED_LEDGERS.map(l => ({
         ...l,
         openingBalance: 0,
         currentBalance: 0
       }));
 
-      // Clean default bank account balances to 0!
       const cleanBanks = SEED_BANK_ACCOUNTS.map(ba => ({
         ...ba,
         currentBalance: 0
       }));
 
-      // Seed tables
-      setStorageItem('goshala_erp_fys', SEED_FYS);
-      setStorageItem('goshala_erp_groups', SEED_GROUPS);
-      setStorageItem('goshala_erp_ledgers', cleanLedgers);
-      setStorageItem('goshala_erp_cost_centers', SEED_COST_CENTERS);
-      setStorageItem('goshala_erp_cows', SEED_COWS);
-      setStorageItem('goshala_erp_contacts', []);
-      setStorageItem('goshala_erp_inventory', []);
-      setStorageItem('goshala_erp_batches', []);
-      setStorageItem('goshala_erp_stock_tx', []);
-      setStorageItem('goshala_erp_bank_accounts', cleanBanks);
-      setStorageItem('goshala_erp_vouchers', []);
-      setStorageItem('goshala_erp_loans', []);
-      setStorageItem('goshala_erp_config', SEED_CONFIG);
+      // Seed local storage if not already present
+      if (!localStorage.getItem('goshala_erp_fys')) setStorageItem('goshala_erp_fys', SEED_FYS);
+      if (!localStorage.getItem('goshala_erp_groups')) setStorageItem('goshala_erp_groups', SEED_GROUPS);
+      if (!localStorage.getItem('goshala_erp_ledgers')) setStorageItem('goshala_erp_ledgers', cleanLedgers);
+      if (!localStorage.getItem('goshala_erp_cost_centers')) setStorageItem('goshala_erp_cost_centers', SEED_COST_CENTERS);
+      if (!localStorage.getItem('goshala_erp_cows')) setStorageItem('goshala_erp_cows', SEED_COWS);
+      if (!localStorage.getItem('goshala_erp_bank_accounts')) setStorageItem('goshala_erp_bank_accounts', cleanBanks);
+      if (!localStorage.getItem('goshala_erp_config')) setStorageItem('goshala_erp_config', SEED_CONFIG);
+      if (!localStorage.getItem('goshala_erp_app_pin')) localStorage.setItem('goshala_erp_app_pin', '1234');
  
       localStorage.setItem('goshala_erp_seeded', seedVersion);
       this.recalculateLedgers();
@@ -124,6 +134,24 @@ export class GoshalaDB {
     if ((window as any)._firebase_sync_initialized) return;
     (window as any)._firebase_sync_initialized = true;
 
+    notifySyncStatus('syncing');
+
+    // PIN Sync Listener
+    try {
+      const pinDocRef = doc(db, 'goshala_erp', 'security_pin');
+      onSnapshot(pinDocRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const remotePin = snapshot.data()?.pin;
+          if (remotePin && remotePin !== localStorage.getItem('goshala_erp_app_pin')) {
+            localStorage.setItem('goshala_erp_app_pin', remotePin);
+            window.dispatchEvent(new CustomEvent('goshala_pin_updated', { detail: { pin: remotePin } }));
+          }
+        }
+      });
+    } catch (e) {
+      console.warn('PIN listener warning:', e);
+    }
+
     const tables = [
       'fys', 'groups', 'ledgers', 'cost_centers', 'cows', 'contacts',
       'inventory', 'batches', 'stock_tx', 'bank_accounts', 'vouchers',
@@ -132,13 +160,17 @@ export class GoshalaDB {
       'audit_logs', 'config', 'samiti_members'
     ];
 
+    let loadedCount = 0;
     tables.forEach(tableName => {
       try {
         const docRef = doc(db, 'goshala_erp', tableName);
         onSnapshot(docRef, (snapshot) => {
+          loadedCount++;
+          if (loadedCount >= 3) notifySyncStatus('synced');
+
           if (snapshot.exists()) {
             const remoteItems = snapshot.data()?.items;
-            if (remoteItems) {
+            if (remoteItems !== undefined) {
               const localItems = getStorageItem(`goshala_erp_${tableName}`, null);
               if (JSON.stringify(localItems) !== JSON.stringify(remoteItems)) {
                 setStorageItem(`goshala_erp_${tableName}`, remoteItems);
@@ -147,10 +179,10 @@ export class GoshalaDB {
             }
           }
         }, err => {
-          // Graceful catch if Firestore rules / DB not initialized yet
+          notifySyncStatus('offline');
         });
       } catch (e) {
-        // Graceful catch
+        notifySyncStatus('offline');
       }
     });
   }

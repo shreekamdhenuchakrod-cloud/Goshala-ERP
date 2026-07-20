@@ -18,9 +18,16 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
   const [masterPassword, setMasterPassword] = useState('');
   const [showMasterInput, setShowMasterInput] = useState(false);
 
+  useEffect(() => {
+    GoshalaDB.init();
+    const handlePinUpdated = () => setError(false);
+    window.addEventListener('goshala_pin_updated', handlePinUpdated);
+    return () => window.removeEventListener('goshala_pin_updated', handlePinUpdated);
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const correctPin = localStorage.getItem('goshala_erp_app_pin') || '1234';
+    const correctPin = GoshalaDB.getAppPin();
     if (pin === correctPin) {
       onUnlock();
     } else {
@@ -37,8 +44,8 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
   const handleMasterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (masterPassword === 'Pp1855141@') {
-      localStorage.setItem('goshala_erp_app_pin', '1234');
-      alert('PIN has been reset to default "1234". Unlocked!');
+      GoshalaDB.setAppPin('1234');
+      alert('PIN has been reset to default "1234" and synced to all devices. Unlocked!');
       onUnlock();
     } else {
       alert('Incorrect master password!');
@@ -47,12 +54,12 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-900 flex items-center justify-center p-4 z-50 font-sans text-slate-100">
-      <div className="bg-slate-800 p-8 rounded-3xl border border-slate-750 max-w-md w-full text-center space-y-6 shadow-2xl">
+      <div className="bg-slate-800 p-6 sm:p-8 rounded-3xl border border-slate-750 max-w-md w-full text-center space-y-6 shadow-2xl">
         <div className="flex flex-col items-center space-y-2">
-          <div className="w-16 h-16 bg-forest-600/25 rounded-2xl flex items-center justify-center border border-forest-500/50">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-forest-600/25 rounded-2xl flex items-center justify-center border border-forest-500/50">
             <span className="text-2xl font-black text-forest-400">🐂</span>
           </div>
-          <h2 className="text-base font-black tracking-wide text-forest-400">SHREE KRISHNA BALRAM GOUSHALA</h2>
+          <h2 className="text-sm sm:text-base font-black tracking-wide text-forest-400">SHREE KRISHNA BALRAM GOUSHALA</h2>
           <p className="text-slate-400 text-xs">Enterprise ERP & Accounting Terminal</p>
         </div>
 
@@ -106,12 +113,12 @@ const MainAppContent: React.FC = () => {
     return sessionStorage.getItem('goshala_erp_unlocked') === 'true';
   });
   const [activePage, setActivePage] = useState<string>('dashboard');
+  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('goshala_erp_dark') === 'true';
   });
 
   useEffect(() => {
-    // Initialize DB schemas & baseline seeds
     GoshalaDB.init();
   }, []);
 
@@ -125,6 +132,11 @@ const MainAppContent: React.FC = () => {
       localStorage.setItem('goshala_erp_dark', 'false');
     }
   }, [darkMode]);
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('goshala_erp_unlocked');
+    setIsUnlocked(false);
+  };
 
   const renderPage = () => {
     switch (activePage) {
@@ -155,17 +167,28 @@ const MainAppContent: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 overflow-hidden font-sans transition-colors duration-200">
       
-      {/* Sidebar navigation */}
-      <Sidebar activePage={activePage} setActivePage={setActivePage} />
+      {/* Sidebar navigation with mobile drawer support */}
+      <Sidebar
+        activePage={activePage}
+        setActivePage={setActivePage}
+        mobileOpen={mobileOpen}
+        setMobileOpen={setMobileOpen}
+        onLogout={handleLogout}
+      />
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col overflow-hidden pl-64">
+      <div className="flex-1 flex flex-col overflow-hidden pl-0 md:pl-64">
         
         {/* Header tools */}
-        <Header darkMode={darkMode} setDarkMode={setDarkMode} />
+        <Header
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          onToggleMobileMenu={() => setMobileOpen(!mobileOpen)}
+          onLogout={handleLogout}
+        />
 
         {/* Dynamic page content */}
-        <main className="flex-1 overflow-y-auto p-8 pt-24">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 pt-20 sm:pt-24">
           <div className="max-w-6xl mx-auto">
             {renderPage()}
           </div>

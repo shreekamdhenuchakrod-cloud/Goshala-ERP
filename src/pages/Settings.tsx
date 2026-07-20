@@ -172,7 +172,7 @@ export const Settings: React.FC = () => {
   };
 
   const handleSavePin = () => {
-    const correctPin = localStorage.getItem('goshala_erp_app_pin') || '1234';
+    const correctPin = GoshalaDB.getAppPin();
     if (currentPinText !== correctPin) {
       alert('Current PIN is incorrect!');
       return;
@@ -181,8 +181,8 @@ export const Settings: React.FC = () => {
       alert('New PIN must be exactly 4 digits!');
       return;
     }
-    localStorage.setItem('goshala_erp_app_pin', newPinText);
-    alert('Security PIN updated successfully!');
+    GoshalaDB.setAppPin(newPinText);
+    alert('Security PIN updated successfully and synced to all devices!');
     setCurrentPinText('');
     setNewPinText('');
   };
