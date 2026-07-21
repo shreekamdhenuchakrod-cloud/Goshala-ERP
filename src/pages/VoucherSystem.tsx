@@ -206,14 +206,38 @@ export const VoucherSystem: React.FC = () => {
 
   // Quick Ledger Creator state & handlers
   const [showQuickLedgerModal, setShowQuickLedgerModal] = useState(false);
-  const [quickLedgerType, setQuickLedgerType] = useState<'EXPENSE' | 'BANK_CASH' | 'INCOME'>('EXPENSE');
+  const [quickLedgerType, setQuickLedgerType] = useState<'EXPENSE' | 'BANK_CASH' | 'INCOME' | 'LOAN'>('EXPENSE');
   const [quickLedgerName, setQuickLedgerName] = useState('');
   const [quickLedgerCode, setQuickLedgerCode] = useState('');
+  const [quickOpeningBal, setQuickOpeningBal] = useState<number>(0);
+  const [quickPhone, setQuickPhone] = useState('');
+  const [quickAddress, setQuickAddress] = useState('');
+  const [quickNotes, setQuickNotes] = useState('');
+  const [quickGroup, setQuickGroup] = useState('');
+  const [interestAmount, setInterestAmount] = useState<number>(0);
+  const [customPrintName, setCustomPrintName] = useState('');
 
-  const handleOpenQuickLedger = (type: 'EXPENSE' | 'BANK_CASH' | 'INCOME') => {
+  const generateAutoCode = (type: string) => {
+    const allLedgers = GoshalaDB.getTable<Ledger>('ledgers');
+    let prefix = 'EXP';
+    if (type === 'INCOME') prefix = 'INC';
+    else if (type === 'BANK_CASH') prefix = 'BANK';
+    else if (type === 'LOAN') prefix = 'LOAN';
+    else if (type === 'PARTY') prefix = 'PARTY';
+    
+    const count = allLedgers.filter(l => l.code && l.code.toUpperCase().startsWith(prefix)).length + 1;
+    return `${prefix}${String(count).padStart(3, '0')}`;
+  };
+
+  const handleOpenQuickLedger = (type: 'EXPENSE' | 'BANK_CASH' | 'INCOME' | 'LOAN') => {
     setQuickLedgerType(type);
     setQuickLedgerName('');
-    setQuickLedgerCode(`L-${Math.floor(100 + Math.random() * 900)}`);
+    setQuickOpeningBal(0);
+    setQuickPhone('');
+    setQuickAddress('');
+    setQuickNotes('');
+    setQuickGroup('');
+    setQuickLedgerCode(generateAutoCode(type));
     setShowQuickLedgerModal(true);
   };
 
@@ -224,24 +248,27 @@ export const VoucherSystem: React.FC = () => {
     const allLedgers = GoshalaDB.getTable<Ledger>('ledgers');
     const newId = `l-${Date.now()}`;
     
-    let groupId = 'g-indirect-expenses';
+    let groupId = quickGroup || 'g-indirect-expenses';
     let ledgerType: 'EXPENSE' | 'INCOME' | 'ASSET' | 'LIABILITY' | 'CAPITAL' = 'EXPENSE';
     if (quickLedgerType === 'INCOME') {
-      groupId = 'g-indirect-income';
+      groupId = quickGroup || 'g-indirect-income';
       ledgerType = 'INCOME';
     } else if (quickLedgerType === 'BANK_CASH') {
-      groupId = 'g-current-assets';
+      groupId = quickGroup || 'g-current-assets';
       ledgerType = 'ASSET';
+    } else if (quickLedgerType === 'LOAN') {
+      groupId = quickGroup || 'g-loans-liabilities';
+      ledgerType = 'LIABILITY';
     }
 
     const newLedger: Ledger = {
       id: newId,
-      code: quickLedgerCode || `L-${Date.now().toString().slice(-4)}`,
+      code: quickLedgerCode || generateAutoCode(quickLedgerType),
       name: quickLedgerName,
       groupId: groupId,
       type: ledgerType,
-      openingBalance: 0,
-      currentBalance: 0,
+      openingBalance: Number(quickOpeningBal) || 0,
+      currentBalance: Number(quickOpeningBal) || 0,
       isSystem: false
     };
 
@@ -249,7 +276,7 @@ export const VoucherSystem: React.FC = () => {
     GoshalaDB.saveTable('ledgers', updated);
     setLedgers(updated);
     
-    if (quickLedgerType === 'EXPENSE' || quickLedgerType === 'INCOME') {
+    if (quickLedgerType === 'EXPENSE' || quickLedgerType === 'INCOME' || quickLedgerType === 'LOAN') {
       setSelectedParticular(newId);
     } else if (quickLedgerType === 'BANK_CASH') {
       setSelectedCashBank(newId);
@@ -285,6 +312,13 @@ export const VoucherSystem: React.FC = () => {
       // Debit cash/bank, Credit particular (income ledger)
       entries.push({ ledgerId: selectedCashBank, amount: singleAmount, isDebit: true });
       entries.push({ ledgerId: selectedParticular, amount: singleAmount, isDebit: false });
+    } else if (vType === 'LOAN_REPAYMENT') {
+      // Debit Loan Ledger (Principal paid), Debit Interest Expense (if any), Credit Cash/Bank (Total paid)
+      entries.push({ ledgerId: selectedParticular, amount: singleAmount, isDebit: true });
+      if (interestAmount > 0) {
+        entries.push({ ledgerId: 'l-exp-interest', amount: interestAmount, isDebit: true });
+      }
+      entries.push({ ledgerId: selectedCashBank, amount: singleAmount + interestAmount, isDebit: false });
     } else if (vType === 'CONTRA') {
       // Transfer to particular (debit), from cashBank (credit)
       entries.push({ ledgerId: selectedParticular, amount: singleAmount, isDebit: true });
@@ -603,7 +637,7 @@ export const VoucherSystem: React.FC = () => {
         const categoryId = deb?.ledgerId || '';
         const customNote = config.receiptTemplates?.[categoryId] || config.receiptTemplates?.['default'] || 'Received cash/bank payment for Goshala expenses.';
         
-        let recipientName = 'Ramesh Kumar Waged';
+        let recipientName = '';
         const match = printPaymentVoucher.narration.match(/^\[([^\]]+)\]/);
         if (match) recipientName = match[1];
 
@@ -616,6 +650,17 @@ export const VoucherSystem: React.FC = () => {
               </div>
               <div className="p-6 space-y-4">
                 
+                <div className="space-y-1 no-print">
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Recipient Print Name (रसीद पर छपने वाला नाम):</label>
+                  <input
+                    type="text"
+                    placeholder="Enter recipient name to print on receipt (पक्षकार का नाम लिखें)..."
+                    value={customPrintName !== undefined && customPrintName !== '' ? customPrintName : recipientName}
+                    onChange={(e) => setCustomPrintName(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 text-xs font-bold"
+                  />
+                </div>
+
                 <div id="printable-payment-card" className="p-6 border-2 border-double border-saffron-600 bg-white text-slate-850 rounded-2xl space-y-4 font-sans">
                   <div className="flex items-center pb-2 border-b border-saffron-100 space-x-3">
                     {config.logoUrl && (
@@ -629,10 +674,10 @@ export const VoucherSystem: React.FC = () => {
                   </div>
                   
                   <div className="grid grid-cols-2 gap-y-2 text-[9px] pb-2 border-b border-slate-100">
-                    <div>Voucher No: <strong>{printPaymentVoucher.voucherNumber}</strong></div>
-                    <div className="text-right">Date: <strong>{printPaymentVoucher.date}</strong></div>
-                    <div>Paid To (प्राप्तकर्ता): <strong>{recipientName}</strong></div>
-                    <div className="text-right">Account Head: <strong>{getLedgerName(categoryId)}</strong></div>
+                    <div>{language === 'hi' ? 'वाउचर वाउचर सं:' : 'Voucher No:'} <strong>{printPaymentVoucher.voucherNumber}</strong></div>
+                    <div className="text-right">{language === 'hi' ? 'दिनांक:' : 'Date:'} <strong>{printPaymentVoucher.date}</strong></div>
+                    <div>{language === 'hi' ? 'प्राप्तकर्ता:' : 'Paid To:'} <strong>{customPrintName || recipientName || '—'}</strong></div>
+                    <div className="text-right">{language === 'hi' ? 'खर्च मद:' : 'Account Head:'} <strong>{getLedgerName(categoryId)}</strong></div>
                   </div>
 
                   <div className="py-2 text-[10px] leading-relaxed">
@@ -721,6 +766,7 @@ export const VoucherSystem: React.FC = () => {
                 >
                   <option value="PAYMENT">PAYMENT (भुगतान खर्च)</option>
                   <option value="RECEIPT">RECEIPT (आवक आय)</option>
+                  <option value="LOAN_REPAYMENT">LOAN REPAYMENT (ऋण भुगतान)</option>
                   <option value="CONTRA">CONTRA (बैंक-नकद अंतरण)</option>
                   <option value="JOURNAL">JOURNAL (एडजस्टमेंट बही)</option>
                 </select>
@@ -787,12 +833,13 @@ export const VoucherSystem: React.FC = () => {
                   <label>
                     {vType === 'RECEIPT' && "पैसा किस मद से आया? (Source of Income)"}
                     {vType === 'PAYMENT' && "पैसा कहाँ खर्च हुआ? (Expense Account)"}
+                    {vType === 'LOAN_REPAYMENT' && "किस ऋण का भुगतान किया? (Loan Account)"}
                     {vType === 'CONTRA' && "Transfer To (जमा खाता - Cash/Bank)"}
                     {vType === 'JOURNAL' && "Debit Account (Dr)"}
                   </label>
                   <button
                     type="button"
-                    onClick={() => handleOpenQuickLedger(vType === 'RECEIPT' ? 'INCOME' : 'EXPENSE')}
+                    onClick={() => handleOpenQuickLedger(vType === 'RECEIPT' ? 'INCOME' : vType === 'LOAN_REPAYMENT' ? 'LOAN' : 'EXPENSE')}
                     className="text-[10px] bg-forest-50 hover:bg-forest-100 dark:bg-slate-800 text-forest-700 dark:text-forest-400 font-bold px-2 py-0.5 rounded-md border border-forest-200 dark:border-slate-700 shadow-2xs transition"
                   >
                     + Quick Add
@@ -811,6 +858,11 @@ export const VoucherSystem: React.FC = () => {
                   {vType === 'RECEIPT' && incomeLedgers.map(l => (
                     <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
                   ))}
+                  {vType === 'LOAN_REPAYMENT' && (ledgers.filter(l => l.groupId === 'g-loans-liabilities' || l.groupId === 'g-secured-loans' || l.groupId === 'g-unsecured-loans' || l.name.toLowerCase().includes('loan') || l.name.toLowerCase().includes('ऋण')).length > 0 ? ledgers.filter(l => l.groupId === 'g-loans-liabilities' || l.groupId === 'g-secured-loans' || l.groupId === 'g-unsecured-loans' || l.name.toLowerCase().includes('loan') || l.name.toLowerCase().includes('ऋण')).map(l => (
+                    <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
+                  )) : ledgers.map(l => (
+                    <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
+                  )))}
                   {vType === 'CONTRA' && cashBankLedgers.map(l => (
                     <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
                   ))}
@@ -1251,12 +1303,18 @@ export const VoucherSystem: React.FC = () => {
       {/* QUICK LEDGER CREATOR MODAL */}
       {showQuickLedgerModal && (
         <div className="fixed inset-0 bg-slate-950/45 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl max-w-sm w-full space-y-4">
-            <h3 className="text-slate-850 dark:text-white font-extrabold text-sm text-center">
-              {quickLedgerType === 'EXPENSE' && '➕ Quick Add Expense Account (खर्च खाता जोड़ें)'}
-              {quickLedgerType === 'INCOME' && '➕ Quick Add Income Account (आय खाता जोड़ें)'}
-              {quickLedgerType === 'BANK_CASH' && '➕ Quick Add Cash/Bank Account (नकद/बैंक खाता जोड़ें)'}
-            </h3>
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl max-w-md w-full space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-2 border-b">
+              <h3 className="text-slate-850 dark:text-white font-extrabold text-sm">
+                {quickLedgerType === 'EXPENSE' && '➕ Quick Add Expense Account (खर्च खाता)'}
+                {quickLedgerType === 'INCOME' && '➕ Quick Add Income Account (आय खाता)'}
+                {quickLedgerType === 'BANK_CASH' && '➕ Quick Add Cash/Bank Account (बैंक/नकद)'}
+                {quickLedgerType === 'LOAN' && '➕ Quick Add Loan Account (ऋण खाता)'}
+              </h3>
+              <span className="text-[10px] bg-forest-50 text-forest-700 font-extrabold px-2.5 py-0.5 rounded-full border border-forest-200 font-mono">
+                Code: {quickLedgerCode}
+              </span>
+            </div>
             <form onSubmit={handleSaveQuickLedger} className="space-y-3 text-xs font-bold text-slate-500">
               <div className="space-y-1">
                 <label>Account Name (खाते का नाम) *</label>
@@ -1269,22 +1327,70 @@ export const VoucherSystem: React.FC = () => {
                   className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
                 />
               </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label>Auto Code (खाता कोड)</label>
+                  <input
+                    type="text"
+                    value={quickLedgerCode}
+                    onChange={(e) => setQuickLedgerCode(e.target.value)}
+                    placeholder="EXP001"
+                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-mono font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label>Opening Balance (प्रारंभिक शेष ₹)</label>
+                  <input
+                    type="number"
+                    value={quickOpeningBal || ''}
+                    onChange={(e) => setQuickOpeningBal(Number(e.target.value))}
+                    placeholder="0"
+                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label>Mobile Number (संपर्क)</label>
+                  <input
+                    type="text"
+                    value={quickPhone}
+                    onChange={(e) => setQuickPhone(e.target.value)}
+                    placeholder="Mobile / Phone"
+                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label>Location / Address (पता)</label>
+                  <input
+                    type="text"
+                    value={quickAddress}
+                    onChange={(e) => setQuickAddress(e.target.value)}
+                    placeholder="City / Address"
+                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-1">
-                <label>Account Code (खाता कोड)</label>
+                <label>Notes / Particulars (विवरण / टिप्पणी)</label>
                 <input
                   type="text"
-                  value={quickLedgerCode}
-                  onChange={(e) => setQuickLedgerCode(e.target.value)}
-                  placeholder="L-101"
+                  value={quickNotes}
+                  onChange={(e) => setQuickNotes(e.target.value)}
+                  placeholder="Additional account details..."
                   className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
                 />
               </div>
+
               <div className="flex space-x-2 pt-2">
                 <button type="button" onClick={() => setShowQuickLedgerModal(false)} className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs">
                   Cancel
                 </button>
                 <button type="submit" className="flex-1 py-2.5 bg-forest-600 hover:bg-forest-750 text-white font-bold rounded-xl text-xs shadow-xs">
-                  Save Account
+                  Save Account (खाता सहेजें)
                 </button>
               </div>
             </form>

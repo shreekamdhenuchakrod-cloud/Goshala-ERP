@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GoshalaDB } from '../db/db';
 import { Voucher, Ledger } from '../db/schema';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Landmark, Wallet, DollarSign, FileSpreadsheet, PlusCircle } from 'lucide-react';
+import { TrendingUp, Landmark, Wallet, DollarSign, FileSpreadsheet, PlusCircle, Mic, MicOff } from 'lucide-react';
 
 import { useLanguage, formatBilingual } from '../hooks/useLanguage';
 
@@ -24,6 +24,37 @@ export const Dashboard: React.FC = () => {
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [aiText, setAiText] = useState('');
   const [parsedVoucher, setParsedVoucher] = useState<any | null>(null);
+  const [isListening, setIsListening] = useState(false);
+
+  const handleStartVoice = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Voice Recognition is not supported in this browser. Please use Google Chrome or Edge.');
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'hi-IN';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    setIsListening(true);
+    recognition.start();
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setAiText(transcript);
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event: any) => {
+      setIsListening(false);
+      alert('Voice input error: ' + (event.error || 'Unknown error'));
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+  };
 
   const handleParseAiCommand = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,10 +166,10 @@ export const Dashboard: React.FC = () => {
 
     try {
       GoshalaDB.saveVoucher(newVoucher, activeUser);
-      alert('Voucher posted successfully using AI suggestion parser!');
+      alert('Voucher posted successfully using AI Assistant!');
       setParsedVoucher(null);
       setAiText('');
-      window.location.reload();
+      loadDashboardData();
     } catch (err: any) {
       alert(err.message || 'Error saving voucher.');
     }
@@ -182,15 +213,18 @@ export const Dashboard: React.FC = () => {
     setAiSuggestions(suggestions);
   }, []);
 
-  useEffect(() => {
+  const loadDashboardData = () => {
     // Fetch tables
     const vouchers = GoshalaDB.getTable<Voucher>('vouchers');
     const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
     const loans = GoshalaDB.getTable<any>('loans');
 
     const cashL = ledgers.find(l => l.id === 'l-cash')?.currentBalance || 0;
-    const bankL = (ledgers.find(l => l.id === 'l-bank-sbi')?.currentBalance || 0) + 
-                  (ledgers.find(l => l.id === 'l-bank-bob')?.currentBalance || 0);
+    
+    // Dynamic bank balance calculation across all bank ledgers
+    const bankL = ledgers
+      .filter(l => l.groupId === 'g-current-assets' && l.id !== 'l-cash' && l.id !== 'l-tds-receivable')
+      .reduce((sum, l) => sum + (l.currentBalance || 0), 0);
 
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -218,13 +252,18 @@ export const Dashboard: React.FC = () => {
       });
     });
 
-    // Outstanding loans
-    const loanOutstanding = loans.reduce((sum: number, l: any) => sum + l.outstandingAmount, 0);
+    // Outstanding loans calculation
+    let loanOutstanding = loans.reduce((sum: number, l: any) => sum + (l.outstandingAmount || 0), 0);
+    if (loanOutstanding === 0) {
+      loanOutstanding = ledgers
+        .filter(l => l.groupId === 'g-loans-liabilities' || l.groupId === 'g-secured-loans' || l.groupId === 'g-unsecured-loans')
+        .reduce((sum, l) => sum + (l.currentBalance || 0), 0);
+    }
 
     // Fixed Assets valuation
     const fixedAssetsValuation = ledgers
       .filter(l => l.groupId === 'g-fixed-assets')
-      .reduce((sum, l) => sum + l.currentBalance, 0);
+      .reduce((sum, l) => sum + (l.currentBalance || 0), 0);
 
     setMetrics({
       todayIncome: incToday,
@@ -257,6 +296,10 @@ export const Dashboard: React.FC = () => {
 
     // Recent vouchers list
     setRecentVouchers(vouchers.slice(-5).reverse());
+  };
+
+  useEffect(() => {
+    loadDashboardData();
   }, []);
 
   return (
@@ -453,6 +496,18 @@ export const Dashboard: React.FC = () => {
                   onChange={(e) => setAiText(e.target.value)}
                   className="flex-1 px-4 py-2 bg-violet-950/60 border border-violet-850 text-white rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 font-normal"
                 />
+                <button
+                  type="button"
+                  onClick={handleStartVoice}
+                  title="Voice Input (बोलकर एंट्री करें)"
+                  className={`p-2.5 rounded-xl border transition flex items-center justify-center ${
+                    isListening
+                      ? 'bg-red-600 text-white animate-pulse border-red-500'
+                      : 'bg-violet-900/60 hover:bg-violet-800 text-violet-200 border-violet-700'
+                  }`}
+                >
+                  {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-saffron-400" />}
+                </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-violet-650 hover:bg-violet-750 text-white font-bold rounded-xl text-xs transition"

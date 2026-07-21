@@ -67,7 +67,7 @@ export interface CostCenter {
   spentAmount: number;
 }
 
-export type VoucherType = 'RECEIPT' | 'PAYMENT' | 'JOURNAL' | 'CONTRA';
+export type VoucherType = 'RECEIPT' | 'PAYMENT' | 'JOURNAL' | 'CONTRA' | 'LOAN_REPAYMENT' | 'PURCHASE' | 'SALES';
 export type VoucherStatus =
   | 'DRAFT'
   | 'ACCOUNTANT_VERIFIED'
@@ -373,6 +373,7 @@ export interface ERPConfig {
   enable80G?: boolean;
   enableGST?: boolean;
   enableTDS?: boolean;
+  accountingMode?: 'SIMPLE' | 'PROFESSIONAL';
   enableDonationReceipt?: boolean;
 
   // Printing settings

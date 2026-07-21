@@ -974,6 +974,25 @@ export const Settings: React.FC = () => {
             <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-6">
               <h3 className="font-extrabold text-base text-slate-850 dark:text-white">Tax Parameters & Registrations</h3>
               <form onSubmit={handleSave} className="space-y-6 text-xs font-bold text-slate-500">
+                <div className="p-4 bg-forest-50/60 dark:bg-slate-900/60 rounded-2xl border border-forest-100 dark:border-slate-700 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-extrabold text-sm text-slate-850 dark:text-white">Accounting Mode (लेखांकन मोड)</h4>
+                      <p className="text-[10px] text-slate-500 font-normal">
+                        Simple Mode hides Debit/Credit & shows "पैसा आया / पैसा गया". Professional Mode enables traditional DR/CR.
+                      </p>
+                    </div>
+                    <select
+                      value={config.accountingMode || 'SIMPLE'}
+                      onChange={(e) => setConfig({ ...config, accountingMode: e.target.value as any })}
+                      className="px-3 py-1.5 border rounded-xl bg-white dark:bg-slate-900 font-extrabold text-forest-700 text-xs shadow-xs"
+                    >
+                      <option value="SIMPLE">Simple Mode (आसान मोड - Recommended)</option>
+                      <option value="PROFESSIONAL">Professional Mode (सीए / एकाउंटेंट मोड)</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   
                   {/* Toggles */}
