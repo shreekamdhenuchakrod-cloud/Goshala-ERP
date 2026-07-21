@@ -588,10 +588,9 @@ export const Settings: React.FC = () => {
 
   // Reset & Clear data triggers
   const handleResetDatabase = () => {
-    if (!window.confirm('WARNING: This will delete ALL transaction vouchers, cow records, and employee logs, resetting to baseline seed data. Proceed?')) return;
-    localStorage.removeItem('goshala_erp_seeded');
-    GoshalaDB.init();
-    alert('Database reset to initial seeds! Reloading workspace.');
+    if (!window.confirm('⚠️ WARNING: This will DELETE all your manually entered vouchers, test entries, and reset to baseline historical CA data. Your organisation profile and PIN will be preserved.\n\nProceed?')) return;
+    GoshalaDB.hardResetToBaseline();
+    alert('✅ Database reset to baseline CA data! All test/QA entries removed. Reloading...');
     window.location.reload();
   };
 
@@ -668,127 +667,145 @@ export const Settings: React.FC = () => {
   return (
     <div className="space-y-6">
       
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-extrabold text-slate-800 dark:text-white">{t('settings')}</h2>
-          <p className="text-slate-500 text-xs dark:text-slate-400">Configure voucher numbering, letters, cost nodes, ledgers, and database backups</p>
+      {/* Modern Enterprise Settings Header */}
+      <div className="bg-gradient-to-r from-forest-700 to-forest-900 dark:from-forest-900 dark:to-slate-900 rounded-3xl p-6 text-white shadow-xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center space-x-4">
+            <div className="w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+              <span className="text-3xl">⚙️</span>
+            </div>
+            <div>
+              <h2 className="text-xl font-extrabold tracking-tight">Settings & Configuration</h2>
+              <p className="text-forest-100/80 text-xs mt-0.5">Goshala ERP — Enterprise Administration Panel</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 text-[10px] font-bold">
+            {[
+              { key: 'org', icon: '🏢', label: 'Organization' },
+              { key: 'acct_prefs', icon: '📊', label: 'Accounting' },
+              { key: 'ledgers', icon: '📒', label: 'Ledgers' },
+              { key: 'security', icon: '🔒', label: 'Security' },
+              { key: 'danger_zone', icon: '🚨', label: 'Reset' },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key as any)}
+                className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === tab.key ? 'bg-white text-forest-800 shadow' : 'bg-white/15 text-white hover:bg-white/25'}`}
+              >
+                {tab.icon} {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Tabs navigation */}
-      <div className="flex space-x-2 border-b border-slate-100 dark:border-slate-750 pb-2 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('org')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'org' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          Organization Details (संस्था विवरण)
-        </button>
-        <button
-          onClick={() => setActiveTab('acct_prefs')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'acct_prefs' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          Accounting Preferences (लेखांकन मोड)
-        </button>
-        <button
-          onClick={() => setActiveTab('tax')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'tax' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          Rules & Taxes (कर नियम)
-        </button>
-        <button
-          onClick={() => setActiveTab('bank')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'bank' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          Bank Starting Balances (बैंक व नकद)
-        </button>
-        <button
-          onClick={() => setActiveTab('print')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'print' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          Voucher Print Templates (रसीद प्रारूप)
-        </button>
-        <button
-          onClick={() => setActiveTab('ledgers')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'ledgers' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          Chart of Accounts (खाता प्रबंधक)
-        </button>
-        <button
-          onClick={() => setActiveTab('cost_centers')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'cost_centers' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          Cost Centers (खर्च केंद्र)
-        </button>
-        <button
-          onClick={() => setActiveTab('fys')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'fys' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          Financial Years (वित्तीय वर्ष)
-        </button>
-        <button
-          onClick={() => setActiveTab('pay_modes')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'pay_modes' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          Payment Modes (भुगतान मोड)
-        </button>
-        <button
-          onClick={() => setActiveTab('members')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'members' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          Samiti Members (समिति सदस्य)
-        </button>
-        <button
-          onClick={() => setActiveTab('parties')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'parties' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          Parties / Contacts (पक्षकार / व्यक्ति)
-        </button>
-        <button
-          onClick={() => setActiveTab('security')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'security' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          App Security (सुरक्षा पिन)
-        </button>
-        <button
-          onClick={() => handleTabClick('danger_zone')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-            activeTab === 'danger_zone' ? 'bg-red-600 text-white shadow-sm' : 'text-red-500 hover:bg-red-50 dark:hover:bg-slate-900'
-          }`}
-        >
-          🚨 Danger Zone (डेंजर ज़ोन)
-        </button>
-      </div>
+      {/* Settings Layout: Sidebar + Content */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left Sidebar Navigation */}
+        <div className="lg:w-64 flex-shrink-0 space-y-2">
+          {/* Group 1: Organisation */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
+            <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-100 dark:border-slate-700">
+              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">🏢 Organisation</p>
+            </div>
+            {[
+              { key: 'org', icon: '📋', label: 'Organization Profile', sub: 'नाम, पता, लोगो' },
+              { key: 'members', icon: '👥', label: 'Samiti Members', sub: 'समिति सदस्य' },
+              { key: 'parties', icon: '🤝', label: 'Parties & Contacts', sub: 'पक्षकार / व्यक्ति' },
+            ].map(item => (
+              <button
+                key={item.key}
+                onClick={() => setActiveTab(item.key as any)}
+                className={`w-full text-left px-4 py-3 flex items-center space-x-3 transition-all border-b border-slate-50 dark:border-slate-700/60 last:border-0 ${activeTab === item.key ? 'bg-forest-50 dark:bg-forest-900/30 border-l-2 border-l-forest-600' : 'hover:bg-slate-50 dark:hover:bg-slate-900/40'}`}
+              >
+                <span className="text-lg">{item.icon}</span>
+                <div>
+                  <p className={`text-xs font-bold ${activeTab === item.key ? 'text-forest-700 dark:text-forest-400' : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</p>
+                  <p className="text-[10px] text-slate-400">{item.sub}</p>
+                </div>
+              </button>
+            ))}
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Active Tab Panel */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* TAB 1: ORG DETAILS */}
+          {/* Group 2: Accounting */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
+            <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-100 dark:border-slate-700">
+              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">📊 Accounting</p>
+            </div>
+            {[
+              { key: 'acct_prefs', icon: '⚙️', label: 'Accounting Mode', sub: 'Simple / Professional' },
+              { key: 'tax', icon: '🧾', label: 'Tax & Registrations', sub: 'GST, 12A, 80G' },
+              { key: 'bank', icon: '🏦', label: 'Bank Balances', sub: 'Cash & Bank opening' },
+              { key: 'fys', icon: '📅', label: 'Financial Years', sub: 'वित्तीय वर्ष' },
+              { key: 'cost_centers', icon: '💡', label: 'Cost Centers', sub: 'खर्च केंद्र' },
+              { key: 'pay_modes', icon: '💳', label: 'Payment Modes', sub: 'भुगतान मोड' },
+            ].map(item => (
+              <button
+                key={item.key}
+                onClick={() => setActiveTab(item.key as any)}
+                className={`w-full text-left px-4 py-3 flex items-center space-x-3 transition-all border-b border-slate-50 dark:border-slate-700/60 last:border-0 ${activeTab === item.key ? 'bg-forest-50 dark:bg-forest-900/30 border-l-2 border-l-forest-600' : 'hover:bg-slate-50 dark:hover:bg-slate-900/40'}`}
+              >
+                <span className="text-lg">{item.icon}</span>
+                <div>
+                  <p className={`text-xs font-bold ${activeTab === item.key ? 'text-forest-700 dark:text-forest-400' : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</p>
+                  <p className="text-[10px] text-slate-400">{item.sub}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Group 3: Ledgers & Print */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
+            <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-100 dark:border-slate-700">
+              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">📒 Ledgers & Print</p>
+            </div>
+            {[
+              { key: 'ledgers', icon: '📒', label: 'Chart of Accounts', sub: 'खाता प्रबंधक' },
+              { key: 'print', icon: '🖨️', label: 'Print Templates', sub: 'रसीद प्रारूप' },
+            ].map(item => (
+              <button
+                key={item.key}
+                onClick={() => setActiveTab(item.key as any)}
+                className={`w-full text-left px-4 py-3 flex items-center space-x-3 transition-all border-b border-slate-50 dark:border-slate-700/60 last:border-0 ${activeTab === item.key ? 'bg-forest-50 dark:bg-forest-900/30 border-l-2 border-l-forest-600' : 'hover:bg-slate-50 dark:hover:bg-slate-900/40'}`}
+              >
+                <span className="text-lg">{item.icon}</span>
+                <div>
+                  <p className={`text-xs font-bold ${activeTab === item.key ? 'text-forest-700 dark:text-forest-400' : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</p>
+                  <p className="text-[10px] text-slate-400">{item.sub}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Group 4: Security & Danger */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
+            <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-100 dark:border-slate-700">
+              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">🔒 Security & Data</p>
+            </div>
+            {[
+              { key: 'security', icon: '🔑', label: 'Security PIN', sub: 'App PIN & access' },
+              { key: 'danger_zone', icon: '🚨', label: 'Reset & Data', sub: 'Backup / Restore', danger: true },
+            ].map(item => (
+              <button
+                key={item.key}
+                onClick={() => setActiveTab(item.key as any)}
+                className={`w-full text-left px-4 py-3 flex items-center space-x-3 transition-all border-b border-slate-50 dark:border-slate-700/60 last:border-0 ${activeTab === item.key ? (item.danger ? 'bg-red-50 dark:bg-red-900/20 border-l-2 border-l-red-500' : 'bg-forest-50 dark:bg-forest-900/30 border-l-2 border-l-forest-600') : 'hover:bg-slate-50 dark:hover:bg-slate-900/40'}`}
+              >
+                <span className="text-lg">{item.icon}</span>
+                <div>
+                  <p className={`text-xs font-bold ${activeTab === item.key ? (item.danger ? 'text-red-600' : 'text-forest-700 dark:text-forest-400') : 'text-slate-700 dark:text-slate-300'}`}>{item.label}</p>
+                  <p className="text-[10px] text-slate-400">{item.sub}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Content Panel */}
+        <div className="flex-1 space-y-6 min-w-0">
+
+      {/* TAB 1: ORG DETAILS */}
+
           {activeTab === 'org' && (
             <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-6">
               <h3 className="font-extrabold text-base text-slate-850 dark:text-white">Organization Identity Details</h3>
@@ -2224,9 +2241,7 @@ export const Settings: React.FC = () => {
 
             </div>
           )}
-
         </div>
-
       </div>
 
       {/* Security PIN prompts modal */}

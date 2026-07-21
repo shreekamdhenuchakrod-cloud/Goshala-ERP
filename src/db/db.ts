@@ -99,7 +99,7 @@ export class GoshalaDB {
   }
 
   static init() {
-    const seedVersion = 'v12';
+    const seedVersion = 'v13';
     const seeded = localStorage.getItem('goshala_erp_seeded');
     if (!seeded || seeded !== seedVersion) {
       console.log('Initializing Goshala ERP baseline version:', seedVersion);
@@ -115,7 +115,19 @@ export class GoshalaDB {
         currentBalance: ba.currentBalance || 0
       }));
 
-      // Seed local storage if not already present
+      // On fresh install / version bump: wipe all transaction tables, keep config & pin
+      const savedConfig = localStorage.getItem('goshala_erp_config');
+      const savedPin = localStorage.getItem('goshala_erp_app_pin');
+
+      // Clear all ERP tables
+      const allKeys = Object.keys(localStorage).filter(k => k.startsWith('goshala_erp_') && k !== 'goshala_erp_config' && k !== 'goshala_erp_app_pin');
+      allKeys.forEach(k => localStorage.removeItem(k));
+
+      // Restore config & pin
+      if (savedConfig) localStorage.setItem('goshala_erp_config', savedConfig);
+      if (savedPin) localStorage.setItem('goshala_erp_app_pin', savedPin);
+
+      // Seed baseline data
       setStorageItem('goshala_erp_fys', SEED_FYS);
       setStorageItem('goshala_erp_groups', SEED_GROUPS);
       setStorageItem('goshala_erp_ledgers', cleanLedgers);
@@ -124,11 +136,39 @@ export class GoshalaDB {
       setStorageItem('goshala_erp_bank_accounts', cleanBanks);
       if (!localStorage.getItem('goshala_erp_config')) setStorageItem('goshala_erp_config', SEED_CONFIG);
       setStorageItem('goshala_erp_loans', SEED_LOANS);
+      // IMPORTANT: Seed actual historical CA vouchers (not test data)
+      setStorageItem('goshala_erp_vouchers', SEED_VOUCHERS);
 
       localStorage.setItem('goshala_erp_seeded', seedVersion);
       this.recalculateLedgers();
     }
     this.initFirebaseSync();
+  }
+
+  // Full wipe: clears ALL transaction data and re-seeds from baseline
+  static hardResetToBaseline() {
+    const savedConfig = localStorage.getItem('goshala_erp_config');
+    const savedPin = localStorage.getItem('goshala_erp_app_pin');
+
+    // Remove ALL ERP keys except config and pin
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('goshala_erp_') && k !== 'goshala_erp_config' && k !== 'goshala_erp_app_pin')
+      .forEach(k => localStorage.removeItem(k));
+
+    if (savedConfig) localStorage.setItem('goshala_erp_config', savedConfig);
+    if (savedPin) localStorage.setItem('goshala_erp_app_pin', savedPin);
+
+    // Force re-seed
+    this.init();
+  }
+
+  // Wipe only user-entered vouchers, keep seed historical data
+  static wipeUserVouchers() {
+    // Keep only seed vouchers (ids that start with 'v-')
+    const allVouchers = this.getTable<Voucher>('vouchers');
+    const seedOnly = allVouchers.filter(v => v.id.startsWith('v-'));
+    this.saveTable('vouchers', seedOnly);
+    this.recalculateLedgers();
   }
 
   static initFirebaseSync() {
