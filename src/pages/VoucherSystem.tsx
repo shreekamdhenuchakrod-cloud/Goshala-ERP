@@ -5,6 +5,18 @@ import { useAuth } from '../hooks/useAuth';
 import { useLanguage, formatBilingual } from '../hooks/useLanguage';
 import { Plus, Search, X, Printer, Image, Trash2, Calendar, Eye, CreditCard, ChevronRight, FileText, CheckCircle } from 'lucide-react';
 
+const amountToHindiWords = (num: number): string => {
+  if (!num || isNaN(num)) return 'शून्य रुपये';
+  const units = ['', 'एक', 'दो', 'तीन', 'चार', 'पांच', 'छह', 'सात', 'आठ', 'नौ', 'दस', 'ग्यारह', 'बारह', 'तेरह', 'चौदह', 'पंद्रह', 'सोलह', 'सत्रह', 'अठारह', 'उन्नीस'];
+  const tens = ['', '', 'बीस', 'तीस', 'चालीस', 'पचास', 'साठ', 'सत्तर', 'अस्सी', 'नब्बे'];
+  if (num < 20) return units[num] + ' रुपये मात्र';
+  if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 ? ' ' + units[num % 10] : '') + ' रुपये मात्र';
+  if (num < 1000) return units[Math.floor(num / 100)] + ' सौ ' + (num % 100 ? amountToHindiWords(num % 100).replace(' रुपये मात्र', '') : '') + ' रुपये मात्र';
+  if (num < 100000) return amountToHindiWords(Math.floor(num / 1000)).replace(' रुपये मात्र', '') + ' हजार ' + (num % 1000 ? amountToHindiWords(num % 1000).replace(' रुपये मात्र', '') : '') + ' रुपये मात्र';
+  if (num < 10000000) return amountToHindiWords(Math.floor(num / 100000)).replace(' रुपये मात्र', '') + ' लाख ' + (num % 100000 ? amountToHindiWords(num % 100000).replace(' रुपये मात्र', '') : '') + ' रुपये मात्र';
+  return amountToHindiWords(Math.floor(num / 10000000)).replace(' रुपये मात्र', '') + ' करोड़ ' + (num % 10000000 ? amountToHindiWords(num % 10000000).replace(' रुपये मात्र', '') : '') + ' रुपये मात्र';
+};
+
 export const VoucherSystem: React.FC = () => {
   const { user } = useAuth();
   const { language, t } = useLanguage();
@@ -210,10 +222,13 @@ export const VoucherSystem: React.FC = () => {
   const [quickLedgerName, setQuickLedgerName] = useState('');
   const [quickLedgerCode, setQuickLedgerCode] = useState('');
   const [quickOpeningBal, setQuickOpeningBal] = useState<number>(0);
-  const [quickPhone, setQuickPhone] = useState('');
-  const [quickAddress, setQuickAddress] = useState('');
   const [quickNotes, setQuickNotes] = useState('');
   const [quickGroup, setQuickGroup] = useState('');
+  const [quickBankAccNo, setQuickBankAccNo] = useState('');
+  const [quickBankIfsc, setQuickBankIfsc] = useState('');
+  const [quickBankBranch, setQuickBankBranch] = useState('');
+  const [quickCashOrBank, setQuickCashOrBank] = useState<'BANK' | 'CASH'>('BANK');
+  const [quickInterestRate, setQuickInterestRate] = useState<number>(0);
   const [interestAmount, setInterestAmount] = useState<number>(0);
   const [customPrintName, setCustomPrintName] = useState('');
 
@@ -221,7 +236,8 @@ export const VoucherSystem: React.FC = () => {
     const allLedgers = GoshalaDB.getTable<Ledger>('ledgers');
     let prefix = 'EXP';
     if (type === 'INCOME') prefix = 'INC';
-    else if (type === 'BANK_CASH') prefix = 'BANK';
+    else if (type === 'BANK_CASH' || type === 'BANK') prefix = 'BANK';
+    else if (type === 'CASH') prefix = 'CASH';
     else if (type === 'LOAN') prefix = 'LOAN';
     else if (type === 'PARTY') prefix = 'PARTY';
     
@@ -233,10 +249,13 @@ export const VoucherSystem: React.FC = () => {
     setQuickLedgerType(type);
     setQuickLedgerName('');
     setQuickOpeningBal(0);
-    setQuickPhone('');
-    setQuickAddress('');
     setQuickNotes('');
     setQuickGroup('');
+    setQuickBankAccNo('');
+    setQuickBankIfsc('');
+    setQuickBankBranch('');
+    setQuickCashOrBank('BANK');
+    setQuickInterestRate(0);
     setQuickLedgerCode(generateAutoCode(type));
     setShowQuickLedgerModal(true);
   };
@@ -248,23 +267,53 @@ export const VoucherSystem: React.FC = () => {
     const allLedgers = GoshalaDB.getTable<Ledger>('ledgers');
     const newId = `l-${Date.now()}`;
     
-    let groupId = quickGroup || 'g-indirect-expenses';
+    let groupId = quickGroup || 'g-expense';
     let ledgerType: 'EXPENSE' | 'INCOME' | 'ASSET' | 'LIABILITY' | 'CAPITAL' = 'EXPENSE';
+    let fullName = quickLedgerName;
+
     if (quickLedgerType === 'INCOME') {
-      groupId = quickGroup || 'g-indirect-income';
+      groupId = quickGroup || 'g-income';
       ledgerType = 'INCOME';
     } else if (quickLedgerType === 'BANK_CASH') {
-      groupId = quickGroup || 'g-current-assets';
+      groupId = 'g-current-assets';
       ledgerType = 'ASSET';
+      if (quickCashOrBank === 'BANK' && quickBankAccNo) {
+        fullName = `${quickLedgerName} (A/c: ${quickBankAccNo})`;
+        const bankAccounts = GoshalaDB.getTable<any>('bank_accounts');
+        bankAccounts.push({
+          id: newId,
+          bankName: quickLedgerName,
+          accountNumber: quickBankAccNo,
+          ifscCode: quickBankIfsc,
+          branchName: quickBankBranch,
+          currentBalance: Number(quickOpeningBal) || 0
+        });
+        GoshalaDB.saveTable('bank_accounts', bankAccounts);
+      }
     } else if (quickLedgerType === 'LOAN') {
-      groupId = quickGroup || 'g-loans-liabilities';
+      groupId = 'g-loans-liab';
       ledgerType = 'LIABILITY';
+      fullName = `${quickLedgerName} Loan`;
+
+      const loans = GoshalaDB.getTable<any>('loans');
+      loans.push({
+        id: newId,
+        type: 'TAKEN',
+        partyName: quickLedgerName,
+        principalAmount: Number(quickOpeningBal) || 100000,
+        interestRate: Number(quickInterestRate) || 0,
+        installments: 12,
+        outstandingAmount: Number(quickOpeningBal) || 100000,
+        dateDisbursed: new Date().toISOString().split('T')[0],
+        history: []
+      });
+      GoshalaDB.saveTable('loans', loans);
     }
 
     const newLedger: Ledger = {
       id: newId,
       code: quickLedgerCode || generateAutoCode(quickLedgerType),
-      name: quickLedgerName,
+      name: fullName,
       groupId: groupId,
       type: ledgerType,
       openingBalance: Number(quickOpeningBal) || 0,
@@ -275,6 +324,7 @@ export const VoucherSystem: React.FC = () => {
     const updated = [...allLedgers, newLedger];
     GoshalaDB.saveTable('ledgers', updated);
     setLedgers(updated);
+    GoshalaDB.recalculateLedgers();
     
     if (quickLedgerType === 'EXPENSE' || quickLedgerType === 'INCOME' || quickLedgerType === 'LOAN') {
       setSelectedParticular(newId);
@@ -283,7 +333,7 @@ export const VoucherSystem: React.FC = () => {
     }
 
     setShowQuickLedgerModal(false);
-    alert(`Account "${quickLedgerName}" created successfully!`);
+    alert(language === 'hi' ? `खाता "${fullName}" सफलतापूर्वक सहेजा गया!` : `Account "${fullName}" created successfully!`);
   };
 
   // Vouchers form submit
@@ -566,7 +616,9 @@ export const VoucherSystem: React.FC = () => {
         <div className="fixed inset-0 bg-slate-950/45 backdrop-blur-sm z-50 flex items-center justify-center p-4 no-print">
           <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-xl border shadow-2xl overflow-hidden text-xs">
             <div className="px-6 py-4 border-b bg-slate-50 dark:bg-slate-900/60 flex justify-between items-center">
-              <h3 className="font-extrabold text-slate-850 dark:text-white">Print Donation Slip (80G Exemption)</h3>
+              <h3 className="font-extrabold text-slate-850 dark:text-white">
+                {language === 'hi' ? 'दान रसीद एवं कर छूट प्रमाण पत्र (80G प्रमाण पत्र)' : 'Print Donation Slip (80G Exemption)'}
+              </h3>
               <button onClick={() => setPrintReceiptVoucher(null)} className="text-slate-400"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
@@ -578,44 +630,54 @@ export const VoucherSystem: React.FC = () => {
                   )}
                   <div className="flex-1 text-center space-y-1">
                     <h2 className="text-base font-black text-forest-750">{config.samitiName}</h2>
-                    <p className="text-[9px] text-slate-500">{config.address} • Regd. No: {config.registrationNo}</p>
+                    <p className="text-[9px] text-slate-500">{config.address} • {language === 'hi' ? 'पंजीयन सं:' : 'Regd No:'} {config.registrationNo}</p>
                     {config.enable80G && (
-                      <p className="text-[8px] text-forest-650 font-bold bg-forest-550/10 px-3 py-0.5 rounded-full inline-block">12A & 80G Certified Income Tax Exempted Organisation</p>
+                      <p className="text-[8px] text-forest-650 font-bold bg-forest-550/10 px-3 py-0.5 rounded-full inline-block">
+                        {language === 'hi' ? '12A एवं 80G पंजीकृत आयकर छूट प्राप्त संस्था' : '12A & 80G Certified Income Tax Exempted Organisation'}
+                      </p>
                     )}
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-y-2 text-[9px] pb-2 border-b border-slate-100">
-                  <div>Voucher No: <strong>{printReceiptVoucher.voucherNumber}</strong></div>
-                  <div className="text-right">Date: <strong>{printReceiptVoucher.date}</strong></div>
-                  <div>Received From: <strong>{donorName || 'Rajesh Kumar Singhal'}</strong></div>
-                  <div className="text-right">PAN Number: <strong>{donorPan || '—'}</strong></div>
+                  <div>{language === 'hi' ? 'रसीद सं:' : 'Receipt No:'} <strong>{printReceiptVoucher.voucherNumber}</strong></div>
+                  <div className="text-right">{language === 'hi' ? 'दिनांक:' : 'Date:'} <strong>{printReceiptVoucher.date}</strong></div>
+                  <div>{language === 'hi' ? 'दानदाता का नाम:' : 'Received From:'} <strong>{donorName || (language === 'hi' ? 'दानदाता' : 'Donor')}</strong></div>
+                  <div className="text-right">{language === 'hi' ? 'पैन नंबर:' : 'PAN Number:'} <strong>{donorPan || '—'}</strong></div>
                 </div>
 
                 <div className="py-2 text-[10px] leading-relaxed">
-                  Received with thanks a sum of <strong>₹{printReceiptVoucher.entries[0]?.amount.toLocaleString()}</strong> (in words: <strong>{amountToWords(printReceiptVoucher.entries[0]?.amount)}</strong>) as charity donation for fodder and Goshala welfare.
+                  {language === 'hi' ? (
+                    <>
+                      श्री कृष्ण बलराम गौशाला समिति को श्री/श्रीमती <strong>{donorName || 'दानदाता'}</strong> से राशि <strong>₹{printReceiptVoucher.entries[0]?.amount.toLocaleString()}</strong> (अक्षरी: <strong>{amountToHindiWords(printReceiptVoucher.entries[0]?.amount || 0)}</strong>) गौ माता के चारे-पानी एवं गौशाला व्यवस्था हेतु सहर्ष दान स्वरूप सधन्यवाद प्राप्त हुए।
+                    </>
+                  ) : (
+                    <>
+                      Received with thanks a sum of <strong>₹{printReceiptVoucher.entries[0]?.amount.toLocaleString()}</strong> (in words: <strong>{amountToWords(printReceiptVoucher.entries[0]?.amount || 0)}</strong>) from Shri/Smt <strong>{donorName || 'Donor'}</strong> as charity donation for fodder and Goshala welfare.
+                    </>
+                  )}
                 </div>
 
                 <div className="pt-6 border-t border-dashed border-slate-200">
                   <div className="text-center text-[9px] font-bold text-slate-500 mb-4 uppercase tracking-wider">
-                    For {config.samitiName} (समिति हस्ताक्षर)
+                    {language === 'hi' ? `कृते ${config.samitiName}` : `For ${config.samitiName}`}
                   </div>
                   <div className="grid grid-cols-3 gap-4 text-center text-[8px] font-bold text-slate-650">
                     <div className="space-y-6">
                       <div className="h-8 border-b border-dashed border-slate-300"></div>
-                      <div>President (अध्यक्ष)</div>
+                      <div>{language === 'hi' ? 'अध्यक्ष' : 'President'}</div>
                     </div>
                     <div className="space-y-6">
                       <div className="h-8 border-b border-dashed border-slate-300"></div>
-                      <div>Secretary (सचिव)</div>
+                      <div>{language === 'hi' ? 'सचिव' : 'Secretary'}</div>
                     </div>
                     <div className="space-y-6">
                       <div className="h-8 border-b border-dashed border-slate-300"></div>
-                      <div>Treasurer (कोषाध्यक्ष)</div>
+                      <div>{language === 'hi' ? 'कोषाध्यक्ष' : 'Treasurer'}</div>
                     </div>
                   </div>
                   <div className="text-center text-[8px] text-slate-400 italic mt-3 pt-1">
-                    {config.printFooter || 'Thank you for your generous support!'}
+                    {config.printFooter || (language === 'hi' ? 'गौ सेवा में आपके अमूल्य सहयोग के लिए हार्दिक धन्यवाद!' : 'Thank you for your generous support!')}
                   </div>
                 </div>
               </div>
@@ -623,7 +685,7 @@ export const VoucherSystem: React.FC = () => {
               <div className="flex justify-end space-x-2 pt-2">
                 <button onClick={() => window.print()} className="px-5 py-2.5 bg-forest-600 text-white font-bold rounded-xl flex items-center space-x-1 hover:bg-forest-750">
                   <Printer className="w-4 h-4" />
-                  <span>Print Receipt</span>
+                  <span>{language === 'hi' ? 'रसीद प्रिंट करें' : 'Print Receipt'}</span>
                 </button>
               </div>
             </div>
@@ -635,7 +697,7 @@ export const VoucherSystem: React.FC = () => {
       {printPaymentVoucher && (() => {
         const deb = printPaymentVoucher.entries.find(e => e.isDebit);
         const categoryId = deb?.ledgerId || '';
-        const customNote = config.receiptTemplates?.[categoryId] || config.receiptTemplates?.['default'] || 'Received cash/bank payment for Goshala expenses.';
+        const customNote = config.receiptTemplates?.[categoryId] || config.receiptTemplates?.['default'] || (language === 'hi' ? 'गौशाला व्यय हेतु नकद/बैंक भुगतान किया गया।' : 'Received cash/bank payment for Goshala expenses.');
         
         let recipientName = '';
         const match = printPaymentVoucher.narration.match(/^\[([^\]]+)\]/);
@@ -645,16 +707,20 @@ export const VoucherSystem: React.FC = () => {
           <div className="fixed inset-0 bg-slate-950/45 backdrop-blur-sm z-50 flex items-center justify-center p-4 no-print">
             <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-xl border shadow-2xl overflow-hidden text-xs">
               <div className="px-6 py-4 border-b bg-slate-50 dark:bg-slate-900/60 flex justify-between items-center">
-                <h3 className="font-extrabold text-slate-850 dark:text-white">Print Payment Voucher Slip</h3>
+                <h3 className="font-extrabold text-slate-850 dark:text-white">
+                  {language === 'hi' ? 'भुगतान वाउचर रसीद स्लिप' : 'Print Payment Voucher Slip'}
+                </h3>
                 <button onClick={() => setPrintPaymentVoucher(null)} className="text-slate-400"><X className="w-5 h-5" /></button>
               </div>
               <div className="p-6 space-y-4">
                 
                 <div className="space-y-1 no-print">
-                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Recipient Print Name (रसीद पर छपने वाला नाम):</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                    {language === 'hi' ? 'रसीद पर छपने वाला प्राप्तकर्ता का नाम:' : 'Recipient Print Name:'}
+                  </label>
                   <input
                     type="text"
-                    placeholder="Enter recipient name to print on receipt (पक्षकार का नाम लिखें)..."
+                    placeholder={language === 'hi' ? 'पक्षकार / प्राप्तकर्ता का नाम दर्ज करें...' : 'Enter recipient name to print on receipt...'}
                     value={customPrintName !== undefined && customPrintName !== '' ? customPrintName : recipientName}
                     onChange={(e) => setCustomPrintName(e.target.value)}
                     className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 text-xs font-bold"
@@ -668,50 +734,61 @@ export const VoucherSystem: React.FC = () => {
                     )}
                     <div className="flex-1 text-center space-y-1">
                       <h2 className="text-base font-black text-saffron-750">{config.samitiName}</h2>
-                      <p className="text-[9px] text-slate-500">{config.address} • Mobile: {config.mobileNumber}</p>
-                      <p className="text-[8px] text-saffron-650 font-bold bg-saffron-550/10 px-3 py-0.5 rounded-full inline-block">PAYMENT VOUCHER (भुगतान रसीद)</p>
+                      <p className="text-[9px] text-slate-500">{config.address} • {language === 'hi' ? 'मोबाईल:' : 'Mobile:'} {config.mobileNumber}</p>
+                      <p className="text-[8px] text-saffron-650 font-bold bg-saffron-550/10 px-3 py-0.5 rounded-full inline-block">
+                        {language === 'hi' ? 'भुगतान वाउचर (Payment Slip)' : 'PAYMENT VOUCHER'}
+                      </p>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-y-2 text-[9px] pb-2 border-b border-slate-100">
-                    <div>{language === 'hi' ? 'वाउचर वाउचर सं:' : 'Voucher No:'} <strong>{printPaymentVoucher.voucherNumber}</strong></div>
+                    <div>{language === 'hi' ? 'वाउचर सं:' : 'Voucher No:'} <strong>{printPaymentVoucher.voucherNumber}</strong></div>
                     <div className="text-right">{language === 'hi' ? 'दिनांक:' : 'Date:'} <strong>{printPaymentVoucher.date}</strong></div>
                     <div>{language === 'hi' ? 'प्राप्तकर्ता:' : 'Paid To:'} <strong>{customPrintName || recipientName || '—'}</strong></div>
                     <div className="text-right">{language === 'hi' ? 'खर्च मद:' : 'Account Head:'} <strong>{getLedgerName(categoryId)}</strong></div>
                   </div>
 
                   <div className="py-2 text-[10px] leading-relaxed">
-                    Paid a sum of <strong>₹{deb?.amount.toLocaleString()}</strong> (in words: <strong>{amountToWords(deb?.amount || 0)}</strong>) in favor of the recipient.
-                    <p className="mt-2 font-semibold text-slate-600 italic">Note: {customNote}</p>
+                    {language === 'hi' ? (
+                      <>
+                        राशि <strong>₹{deb?.amount.toLocaleString()}</strong> (अक्षरी: <strong>{amountToHindiWords(deb?.amount || 0)}</strong>) का भुगतान प्राप्तकर्ता के पक्ष में किया गया।
+                        <p className="mt-2 font-semibold text-slate-600 italic">टिप्पणी: {customNote}</p>
+                      </>
+                    ) : (
+                      <>
+                        Paid a sum of <strong>₹{deb?.amount.toLocaleString()}</strong> (in words: <strong>{amountToWords(deb?.amount || 0)}</strong>) in favor of the recipient.
+                        <p className="mt-2 font-semibold text-slate-600 italic">Note: {customNote}</p>
+                      </>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-4 gap-4 text-center text-[8px] font-bold text-slate-850 pt-6 border-t border-dashed border-slate-200">
                     <div className="space-y-6">
                       <div className="h-8 border-b border-dashed border-slate-300"></div>
-                      <div>Receiver (प्राप्तकर्ता)</div>
+                      <div>{language === 'hi' ? 'प्राप्तकर्ता' : 'Receiver'}</div>
                     </div>
                     <div className="space-y-6">
                       <div className="h-8 border-b border-dashed border-slate-300"></div>
-                      <div>President (अध्यक्ष)</div>
+                      <div>{language === 'hi' ? 'अध्यक्ष' : 'President'}</div>
                     </div>
                     <div className="space-y-6">
                       <div className="h-8 border-b border-dashed border-slate-300"></div>
-                      <div>Secretary (सचिव)</div>
+                      <div>{language === 'hi' ? 'सचिव' : 'Secretary'}</div>
                     </div>
                     <div className="space-y-6">
                       <div className="h-8 border-b border-dashed border-slate-300"></div>
-                      <div>Treasurer (कोषाध्यक्ष)</div>
+                      <div>{language === 'hi' ? 'कोषाध्यक्ष' : 'Treasurer'}</div>
                     </div>
                   </div>
                   <div className="text-center text-[9px] font-bold text-slate-500 mt-2 uppercase tracking-wider block">
-                    For {config.samitiName}
+                    {language === 'hi' ? `कृते ${config.samitiName}` : `For ${config.samitiName}`}
                   </div>
                 </div>
 
                 <div className="flex justify-end space-x-2 pt-2">
                   <button onClick={() => window.print()} className="px-5 py-2.5 bg-saffron-600 hover:bg-saffron-700 text-white font-bold rounded-xl flex items-center space-x-1">
                     <Printer className="w-4 h-4" />
-                    <span>Print Slip</span>
+                    <span>{language === 'hi' ? 'स्लिप प्रिंट करें' : 'Print Slip'}</span>
                   </button>
                 </div>
               </div>
@@ -858,11 +935,9 @@ export const VoucherSystem: React.FC = () => {
                   {vType === 'RECEIPT' && incomeLedgers.map(l => (
                     <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
                   ))}
-                  {vType === 'LOAN_REPAYMENT' && (ledgers.filter(l => l.groupId === 'g-loans-liabilities' || l.groupId === 'g-secured-loans' || l.groupId === 'g-unsecured-loans' || l.name.toLowerCase().includes('loan') || l.name.toLowerCase().includes('ऋण')).length > 0 ? ledgers.filter(l => l.groupId === 'g-loans-liabilities' || l.groupId === 'g-secured-loans' || l.groupId === 'g-unsecured-loans' || l.name.toLowerCase().includes('loan') || l.name.toLowerCase().includes('ऋण')).map(l => (
+                  {vType === 'LOAN_REPAYMENT' && ledgers.filter(l => l.groupId === 'g-loans-liab' || l.groupId === 'g-loans-liabilities' || l.groupId === 'g-secured-loans' || l.groupId === 'g-unsecured-loans' || l.type === 'LIABILITY' || l.id.startsWith('l-loan') || l.id.startsWith('l-member') || l.name.toLowerCase().includes('loan') || l.name.toLowerCase().includes('ऋण')).map(l => (
                     <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
-                  )) : ledgers.map(l => (
-                    <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
-                  )))}
+                  ))}
                   {vType === 'CONTRA' && cashBankLedgers.map(l => (
                     <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
                   ))}
@@ -1306,91 +1381,276 @@ export const VoucherSystem: React.FC = () => {
           <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl max-w-md w-full space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-2 border-b">
               <h3 className="text-slate-850 dark:text-white font-extrabold text-sm">
-                {quickLedgerType === 'EXPENSE' && '➕ Quick Add Expense Account (खर्च खाता)'}
-                {quickLedgerType === 'INCOME' && '➕ Quick Add Income Account (आय खाता)'}
-                {quickLedgerType === 'BANK_CASH' && '➕ Quick Add Cash/Bank Account (बैंक/नकद)'}
-                {quickLedgerType === 'LOAN' && '➕ Quick Add Loan Account (ऋण खाता)'}
+                {quickLedgerType === 'EXPENSE' && (language === 'hi' ? '➕ नया खर्च खाता (Quick Add Expense)' : '➕ Quick Add Expense Account')}
+                {quickLedgerType === 'INCOME' && (language === 'hi' ? '➕ नया आय खाता (Quick Add Income)' : '➕ Quick Add Income Account')}
+                {quickLedgerType === 'BANK_CASH' && (language === 'hi' ? '➕ नया बैंक/नकद खाता (Quick Add Bank/Cash)' : '➕ Quick Add Cash/Bank Account')}
+                {quickLedgerType === 'LOAN' && (language === 'hi' ? '➕ नया ऋण खाता (Quick Add Loan Account)' : '➕ Quick Add Loan Account')}
               </h3>
               <span className="text-[10px] bg-forest-50 text-forest-700 font-extrabold px-2.5 py-0.5 rounded-full border border-forest-200 font-mono">
-                Code: {quickLedgerCode}
+                {quickLedgerCode}
               </span>
             </div>
+
             <form onSubmit={handleSaveQuickLedger} className="space-y-3 text-xs font-bold text-slate-500">
-              <div className="space-y-1">
-                <label>Account Name (खाते का नाम) *</label>
-                <input
-                  type="text"
-                  required
-                  value={quickLedgerName}
-                  onChange={(e) => setQuickLedgerName(e.target.value)}
-                  placeholder="e.g. Labor Expenses, HDFC Bank, Chara Purchase"
-                  className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
-                />
-              </div>
+              
+              {/* FORM TYPE 1: EXPENSE ACCOUNT */}
+              {quickLedgerType === 'EXPENSE' && (
+                <>
+                  <div className="space-y-1">
+                    <label>{language === 'hi' ? 'खर्च खाते का नाम *' : 'Expense Account Name *'}</label>
+                    <input
+                      type="text"
+                      required
+                      value={quickLedgerName}
+                      onChange={(e) => setQuickLedgerName(e.target.value)}
+                      placeholder={language === 'hi' ? 'जैसे: चारा/घास खरीद खर्च, मरम्मत खर्च' : 'e.g. Fodder Purchase, Electric Repair'}
+                      className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label>{language === 'hi' ? 'खाता कोड (Auto Code)' : 'Auto Ledger Code'}</label>
+                      <input
+                        type="text"
+                        value={quickLedgerCode}
+                        onChange={(e) => setQuickLedgerCode(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-mono font-bold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label>{language === 'hi' ? 'प्रारंभिक शेष (Opening Bal ₹)' : 'Opening Balance (₹)'}</label>
+                      <input
+                        type="number"
+                        value={quickOpeningBal || ''}
+                        onChange={(e) => setQuickOpeningBal(Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-normal"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label>{language === 'hi' ? 'विवरण / टिप्पणी' : 'Description / Particulars'}</label>
+                    <input
+                      type="text"
+                      value={quickNotes}
+                      onChange={(e) => setQuickNotes(e.target.value)}
+                      placeholder={language === 'hi' ? 'खाते का विवरण लिखें...' : 'Notes about this expense ledger...'}
+                      className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-normal"
+                    />
+                  </div>
+                </>
+              )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label>Auto Code (खाता कोड)</label>
-                  <input
-                    type="text"
-                    value={quickLedgerCode}
-                    onChange={(e) => setQuickLedgerCode(e.target.value)}
-                    placeholder="EXP001"
-                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-mono font-bold"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label>Opening Balance (प्रारंभिक शेष ₹)</label>
-                  <input
-                    type="number"
-                    value={quickOpeningBal || ''}
-                    onChange={(e) => setQuickOpeningBal(Number(e.target.value))}
-                    placeholder="0"
-                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
-                  />
-                </div>
-              </div>
+              {/* FORM TYPE 2: INCOME ACCOUNT */}
+              {quickLedgerType === 'INCOME' && (
+                <>
+                  <div className="space-y-1">
+                    <label>{language === 'hi' ? 'आय खाते का नाम *' : 'Income Account Name *'}</label>
+                    <input
+                      type="text"
+                      required
+                      value={quickLedgerName}
+                      onChange={(e) => setQuickLedgerName(e.target.value)}
+                      placeholder={language === 'hi' ? 'जैसे: दान आवक, दूध एवं गोबर बिक्री' : 'e.g. General Donation, Milk Sales'}
+                      className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label>{language === 'hi' ? 'खाता कोड (Auto Code)' : 'Auto Ledger Code'}</label>
+                      <input
+                        type="text"
+                        value={quickLedgerCode}
+                        onChange={(e) => setQuickLedgerCode(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-mono font-bold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label>{language === 'hi' ? 'प्रारंभिक शेष (Opening Bal ₹)' : 'Opening Balance (₹)'}</label>
+                      <input
+                        type="number"
+                        value={quickOpeningBal || ''}
+                        onChange={(e) => setQuickOpeningBal(Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-normal"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label>{language === 'hi' ? 'विवरण / टिप्पणी' : 'Description / Particulars'}</label>
+                    <input
+                      type="text"
+                      value={quickNotes}
+                      onChange={(e) => setQuickNotes(e.target.value)}
+                      placeholder={language === 'hi' ? 'आय मद की टिप्पणी...' : 'Income particulars...'}
+                      className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-normal"
+                    />
+                  </div>
+                </>
+              )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label>Mobile Number (संपर्क)</label>
-                  <input
-                    type="text"
-                    value={quickPhone}
-                    onChange={(e) => setQuickPhone(e.target.value)}
-                    placeholder="Mobile / Phone"
-                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label>Location / Address (पता)</label>
-                  <input
-                    type="text"
-                    value={quickAddress}
-                    onChange={(e) => setQuickAddress(e.target.value)}
-                    placeholder="City / Address"
-                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
-                  />
-                </div>
-              </div>
+              {/* FORM TYPE 3: BANK / CASH ACCOUNT */}
+              {quickLedgerType === 'BANK_CASH' && (
+                <>
+                  <div className="flex space-x-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => { setQuickCashOrBank('BANK'); setQuickLedgerCode(generateAutoCode('BANK')); }}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${quickCashOrBank === 'BANK' ? 'bg-white dark:bg-slate-800 text-forest-650 shadow-xs' : 'text-slate-500'}`}
+                    >
+                      🏦 Bank Account (बैंक खाता)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setQuickCashOrBank('CASH'); setQuickLedgerCode(generateAutoCode('CASH')); }}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${quickCashOrBank === 'CASH' ? 'bg-white dark:bg-slate-800 text-forest-650 shadow-xs' : 'text-slate-500'}`}
+                    >
+                      💵 Cash Account (नकद पेटी)
+                    </button>
+                  </div>
 
-              <div className="space-y-1">
-                <label>Notes / Particulars (विवरण / टिप्पणी)</label>
-                <input
-                  type="text"
-                  value={quickNotes}
-                  onChange={(e) => setQuickNotes(e.target.value)}
-                  placeholder="Additional account details..."
-                  className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
-                />
-              </div>
+                  {quickCashOrBank === 'BANK' ? (
+                    <>
+                      <div className="space-y-1">
+                        <label>{language === 'hi' ? 'बैंक का नाम *' : 'Bank Name *'}</label>
+                        <input
+                          type="text"
+                          required
+                          value={quickLedgerName}
+                          onChange={(e) => setQuickLedgerName(e.target.value)}
+                          placeholder="e.g. State Bank of India, Bank of India"
+                          className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label>{language === 'hi' ? 'खाता संख्या (A/c No.)' : 'Account Number'}</label>
+                          <input
+                            type="text"
+                            value={quickBankAccNo}
+                            onChange={(e) => setQuickBankAccNo(e.target.value)}
+                            placeholder="3891000100..."
+                            className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label>{language === 'hi' ? 'आईएफएससी कोड (IFSC)' : 'IFSC Code'}</label>
+                          <input
+                            type="text"
+                            value={quickBankIfsc}
+                            onChange={(e) => setQuickBankIfsc(e.target.value)}
+                            placeholder="SBIN000012"
+                            className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-mono uppercase"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label>{language === 'hi' ? 'शाखा का नाम (Branch)' : 'Branch Name'}</label>
+                          <input
+                            type="text"
+                            value={quickBankBranch}
+                            onChange={(e) => setQuickBankBranch(e.target.value)}
+                            placeholder="Shujalpur Main Branch"
+                            className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-normal"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label>{language === 'hi' ? 'शुरुआती बैंक शेष (Op Bal ₹)' : 'Opening Balance (₹)'}</label>
+                          <input
+                            type="number"
+                            value={quickOpeningBal || ''}
+                            onChange={(e) => setQuickOpeningBal(Number(e.target.value))}
+                            placeholder="0"
+                            className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-normal"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-1">
+                        <label>{language === 'hi' ? 'नकद खाते का नाम *' : 'Cash Ledger Name *'}</label>
+                        <input
+                          type="text"
+                          required
+                          value={quickLedgerName}
+                          onChange={(e) => setQuickLedgerName(e.target.value)}
+                          placeholder="e.g. मुख्य नकद पेटी (Main Cash Counter)"
+                          className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label>{language === 'hi' ? 'नकद शुरुआती शेष (Opening Cash Bal ₹)' : 'Opening Cash Balance (₹)'}</label>
+                        <input
+                          type="number"
+                          value={quickOpeningBal || ''}
+                          onChange={(e) => setQuickOpeningBal(Number(e.target.value))}
+                          placeholder="0"
+                          className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-normal"
+                        />
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* FORM TYPE 4: LOAN ACCOUNT */}
+              {quickLedgerType === 'LOAN' && (
+                <>
+                  <div className="space-y-1">
+                    <label>{language === 'hi' ? 'ऋणदाता बैंक/संस्था का नाम *' : 'Lender / Loan Account Name *'}</label>
+                    <input
+                      type="text"
+                      required
+                      value={quickLedgerName}
+                      onChange={(e) => setQuickLedgerName(e.target.value)}
+                      placeholder="e.g. Bank of India Shed Construction Loan"
+                      className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-850 dark:text-slate-100 font-normal"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label>{language === 'hi' ? 'ऋण राशि (Principal ₹) *' : 'Principal Loan Amount (₹) *'}</label>
+                      <input
+                        type="number"
+                        required
+                        value={quickOpeningBal || ''}
+                        onChange={(e) => setQuickOpeningBal(Number(e.target.value))}
+                        placeholder="100000"
+                        className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-normal"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label>{language === 'hi' ? 'वार्षिक ब्याज दर (%)' : 'Yearly Interest Rate (%)'}</label>
+                      <input
+                        type="number"
+                        value={quickInterestRate || ''}
+                        onChange={(e) => setQuickInterestRate(Number(e.target.value))}
+                        placeholder="8"
+                        className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-normal"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label>{language === 'hi' ? 'ऋण का उद्देश्य / टिप्पणी' : 'Purpose of Borrowing'}</label>
+                    <input
+                      type="text"
+                      value={quickNotes}
+                      onChange={(e) => setQuickNotes(e.target.value)}
+                      placeholder="e.g. Cow shed building or Tractor purchase"
+                      className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-normal"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="flex space-x-2 pt-2">
                 <button type="button" onClick={() => setShowQuickLedgerModal(false)} className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs">
-                  Cancel
+                  {language === 'hi' ? 'रद्द करें' : 'Cancel'}
                 </button>
                 <button type="submit" className="flex-1 py-2.5 bg-forest-600 hover:bg-forest-750 text-white font-bold rounded-xl text-xs shadow-xs">
-                  Save Account (खाता सहेजें)
+                  {language === 'hi' ? 'खाता सहेजें' : 'Save Account'}
                 </button>
               </div>
             </form>

@@ -16,52 +16,62 @@ import { db } from './db/firebase';
 
 const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
   const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
   const [error, setError] = useState(false);
-  const [attempts, setAttempts] = useState(0);
-  const [masterPassword, setMasterPassword] = useState('');
-  const [showMasterInput, setShowMasterInput] = useState(false);
+  const [existingPin, setExistingPin] = useState<string>('');
+  const [isFirstTime, setIsFirstTime] = useState<boolean>(false);
 
   useEffect(() => {
     GoshalaDB.init();
-    const handlePinUpdated = () => setError(false);
+    checkPin();
+    const handlePinUpdated = () => checkPin();
     window.addEventListener('goshala_pin_updated', handlePinUpdated);
     return () => window.removeEventListener('goshala_pin_updated', handlePinUpdated);
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    let correctPin = GoshalaDB.getAppPin();
+  const checkPin = async () => {
+    let p = GoshalaDB.getAppPin();
     try {
       const pinSnap = await getDoc(doc(db, 'goshala_erp', 'security_pin'));
       if (pinSnap.exists() && pinSnap.data()?.pin) {
-        correctPin = pinSnap.data()!.pin;
-        localStorage.setItem('goshala_erp_app_pin', correctPin);
+        p = pinSnap.data()!.pin;
+        localStorage.setItem('goshala_erp_app_pin', p);
       }
     } catch (err) {
-      // Fallback to local
+      // Fallback
     }
 
-    if (pin === correctPin) {
+    if (!p) {
+      setIsFirstTime(true);
+      setExistingPin('');
+    } else {
+      setIsFirstTime(false);
+      setExistingPin(p);
+    }
+  };
+
+  const handleCreatePin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin.length !== 4 || isNaN(Number(pin))) {
+      alert('PIN must be exactly 4 digits! (सुरक्षा पिन केवल 4 अंकों का होना चाहिए)');
+      return;
+    }
+    if (pin !== confirmPin) {
+      alert('PINs do not match! (दोनों स्थान पर समान पिन दर्ज करें)');
+      return;
+    }
+    GoshalaDB.setAppPin(pin);
+    alert('Security PIN created successfully! Keep this PIN safe. (सुरक्षा पिन सफलतापूर्वक सहेजा गया!)');
+    onUnlock();
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin === existingPin) {
       onUnlock();
     } else {
       setError(true);
       setPin('');
-      const newAttempts = attempts + 1;
-      setAttempts(newAttempts);
-      if (newAttempts >= 10) {
-        setShowMasterInput(true);
-      }
-    }
-  };
-
-  const handleMasterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (masterPassword === 'Pp1855141@') {
-      GoshalaDB.setAppPin('1234');
-      alert('PIN has been reset to default "1234" and synced to all devices. Unlocked!');
-      onUnlock();
-    } else {
-      alert('Incorrect master password!');
     }
   };
 
@@ -76,22 +86,41 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
           <p className="text-slate-400 text-xs">Enterprise ERP & Accounting Terminal</p>
         </div>
 
-        {showMasterInput ? (
-          <form onSubmit={handleMasterSubmit} className="space-y-4">
-            <p className="text-xs text-red-400 font-bold">10 failed PIN attempts. Account Locked!</p>
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-slate-400 font-bold uppercase block text-left">Enter Master Password</label>
+        {isFirstTime ? (
+          <form onSubmit={handleCreatePin} className="space-y-4">
+            <div className="p-3 bg-forest-950/40 border border-forest-700/50 rounded-2xl text-left space-y-1">
+              <p className="text-xs font-bold text-forest-400">First-Time Setup (प्रथम पंजीकरण)</p>
+              <p className="text-[10px] text-slate-300">No PIN exists. Please create your own 4-digit security PIN.</p>
+            </div>
+            
+            <div className="space-y-2 text-left">
+              <label className="text-[10px] text-slate-400 font-bold uppercase block">Create 4-Digit Security PIN</label>
               <input
                 type="password"
                 required
-                value={masterPassword}
-                onChange={(e) => setMasterPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="w-full text-center px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-750 text-white font-normal text-xs"
+                maxLength={4}
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                placeholder="••••"
+                className="w-full text-center tracking-[1em] text-2xl font-bold px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-750 text-white"
               />
             </div>
+
+            <div className="space-y-2 text-left">
+              <label className="text-[10px] text-slate-400 font-bold uppercase block">Confirm Security PIN</label>
+              <input
+                type="password"
+                required
+                maxLength={4}
+                value={confirmPin}
+                onChange={(e) => setConfirmPin(e.target.value)}
+                placeholder="••••"
+                className="w-full text-center tracking-[1em] text-2xl font-bold px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-750 text-white"
+              />
+            </div>
+
             <button type="submit" className="w-full py-2.5 bg-forest-600 hover:bg-forest-750 text-white font-bold text-xs rounded-xl transition shadow">
-              Verify Master Password
+              Create PIN & Enter ERP
             </button>
           </form>
         ) : (
@@ -108,7 +137,7 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
             />
             {error && (
               <p className="text-red-400 text-xs font-bold">
-                Incorrect PIN! (Attempts remaining: {10 - attempts})
+                Incorrect PIN! Please try again.
               </p>
             )}
             <button type="submit" className="w-full py-2.5 bg-forest-650 hover:bg-forest-750 text-white font-bold text-xs rounded-xl transition shadow">

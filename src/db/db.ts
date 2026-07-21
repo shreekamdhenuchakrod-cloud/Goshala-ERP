@@ -36,7 +36,8 @@ import {
   SEED_INVENTORY,
   SEED_BANK_ACCOUNTS,
   SEED_CONFIG,
-  SEED_VOUCHERS
+  SEED_VOUCHERS,
+  SEED_LOANS
 } from './seed';
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -81,7 +82,7 @@ const syncTableToFirestore = (name: string, data: any) => {
 // Database class to manage everything client-side
 export class GoshalaDB {
   static getAppPin(): string {
-    return localStorage.getItem('goshala_erp_app_pin') || '1234';
+    return localStorage.getItem('goshala_erp_app_pin') || '';
   }
 
   static setAppPin(newPin: string): void {
@@ -98,32 +99,32 @@ export class GoshalaDB {
   }
 
   static init() {
-    const seedVersion = 'v11';
+    const seedVersion = 'v12';
     const seeded = localStorage.getItem('goshala_erp_seeded');
     if (!seeded || seeded !== seedVersion) {
       console.log('Initializing Goshala ERP baseline version:', seedVersion);
       
       const cleanLedgers = SEED_LEDGERS.map(l => ({
         ...l,
-        openingBalance: 0,
-        currentBalance: 0
+        openingBalance: l.openingBalance || 0,
+        currentBalance: l.currentBalance || 0
       }));
 
       const cleanBanks = SEED_BANK_ACCOUNTS.map(ba => ({
         ...ba,
-        currentBalance: 0
+        currentBalance: ba.currentBalance || 0
       }));
 
       // Seed local storage if not already present
-      if (!localStorage.getItem('goshala_erp_fys')) setStorageItem('goshala_erp_fys', SEED_FYS);
-      if (!localStorage.getItem('goshala_erp_groups')) setStorageItem('goshala_erp_groups', SEED_GROUPS);
-      if (!localStorage.getItem('goshala_erp_ledgers')) setStorageItem('goshala_erp_ledgers', cleanLedgers);
-      if (!localStorage.getItem('goshala_erp_cost_centers')) setStorageItem('goshala_erp_cost_centers', SEED_COST_CENTERS);
-      if (!localStorage.getItem('goshala_erp_cows')) setStorageItem('goshala_erp_cows', SEED_COWS);
-      if (!localStorage.getItem('goshala_erp_bank_accounts')) setStorageItem('goshala_erp_bank_accounts', cleanBanks);
+      setStorageItem('goshala_erp_fys', SEED_FYS);
+      setStorageItem('goshala_erp_groups', SEED_GROUPS);
+      setStorageItem('goshala_erp_ledgers', cleanLedgers);
+      setStorageItem('goshala_erp_cost_centers', SEED_COST_CENTERS);
+      setStorageItem('goshala_erp_cows', SEED_COWS);
+      setStorageItem('goshala_erp_bank_accounts', cleanBanks);
       if (!localStorage.getItem('goshala_erp_config')) setStorageItem('goshala_erp_config', SEED_CONFIG);
-      if (!localStorage.getItem('goshala_erp_app_pin')) localStorage.setItem('goshala_erp_app_pin', '1234');
- 
+      setStorageItem('goshala_erp_loans', SEED_LOANS);
+
       localStorage.setItem('goshala_erp_seeded', seedVersion);
       this.recalculateLedgers();
     }
@@ -258,9 +259,29 @@ export class GoshalaDB {
       }
     });
 
+    // Sync Loans table outstanding amounts from accounting ledger postings
+    const loans = this.getTable<Loan>('loans');
+    loans.forEach(loan => {
+      let matchingLedger = ledgers.find(l => l.id === loan.id || l.id === `l-loan-${loan.id}` || l.name.toLowerCase() === loan.partyName.toLowerCase() || l.name.toLowerCase().includes(loan.partyName.toLowerCase().split(' ')[0]));
+      if (matchingLedger) {
+        loan.outstandingAmount = Math.max(0, matchingLedger.currentBalance);
+      } else {
+        // Fallback: sum posted repayments
+        const totalRepaid = vouchers.filter(v => v.status === 'POSTED').reduce((sum, v) => {
+          if (v.voucherType === 'LOAN_REPAYMENT' || v.narration.toLowerCase().includes(loan.partyName.toLowerCase())) {
+            const deb = v.entries.find(e => e.isDebit && e.ledgerId !== 'l-exp-interest');
+            return sum + (deb ? deb.amount : 0);
+          }
+          return sum;
+        }, 0);
+        loan.outstandingAmount = Math.max(0, loan.principalAmount - totalRepaid);
+      }
+    });
+
     this.saveTable('ledgers', ledgers);
     this.saveTable('cost_centers', costCenters);
     this.saveTable('bank_accounts', bankAccounts);
+    this.saveTable('loans', loans);
   }
 
   // Voucher operations

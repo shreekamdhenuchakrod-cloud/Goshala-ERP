@@ -66,8 +66,8 @@ export const SEED_LEDGERS: Ledger[] = [
   { id: 'l-aid-gouseva', groupId: 'g-capital-aid', name: 'Gou Seva Samardhan Board packing machine', code: '3108', type: 'CAPITAL', openingBalance: 400000, currentBalance: 400000 },
 
   // 5. Liabilities: Members Contribution
-  { id: 'l-member-shed', groupId: 'g-members-contrib', name: 'Member Contribution: Building & Shed', code: '3201', type: 'CAPITAL', openingBalance: 315000, currentBalance: 315000 },
-  { id: 'l-member-packing', groupId: 'g-members-contrib', name: 'Member Contribution: Packing Machine', code: '3202', type: 'CAPITAL', openingBalance: 80000, currentBalance: 80000 },
+  { id: 'l-member-shed', groupId: 'g-loans-liab', name: 'Member Contribution: Building & Shed (सदस्य ऋण)', code: '3201', type: 'LIABILITY', openingBalance: 315000, currentBalance: 315000 },
+  { id: 'l-member-packing', groupId: 'g-loans-liab', name: 'Member Contribution: Packing Machine (सदस्य ऋण)', code: '3202', type: 'LIABILITY', openingBalance: 80000, currentBalance: 80000 },
 
   // 6. Liabilities: Loans & Borrowings
   { id: 'l-loan-unsecured', groupId: 'g-loans-liab', name: 'Unsecured Loans (असुरक्षित ऋण - Gau Sewak)', code: '2101', type: 'LIABILITY', openingBalance: 385694, currentBalance: 385694 },
@@ -170,11 +170,33 @@ export const SEED_LOANS: Loan[] = [
   {
     id: 'l-loan-unsecured',
     type: 'TAKEN',
-    partyName: 'Unsecured Loans',
+    partyName: 'Unsecured Loans (असुरक्षित ऋण - Gau Sewak)',
     principalAmount: 385694,
     interestRate: 0,
     installments: 1,
     outstandingAmount: 385694,
+    dateDisbursed: '2025-04-01',
+    history: []
+  },
+  {
+    id: 'l-member-shed',
+    type: 'TAKEN',
+    partyName: 'Member Contribution: Building & Shed (सदस्य ऋण)',
+    principalAmount: 315000,
+    interestRate: 0,
+    installments: 1,
+    outstandingAmount: 315000,
+    dateDisbursed: '2025-04-01',
+    history: []
+  },
+  {
+    id: 'l-member-packing',
+    type: 'TAKEN',
+    partyName: 'Member Contribution: Packing Machine (सदस्य ऋण)',
+    principalAmount: 80000,
+    interestRate: 0,
+    installments: 1,
+    outstandingAmount: 80000,
     dateDisbursed: '2025-04-01',
     history: []
   }

@@ -19,7 +19,7 @@ export const Settings: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLanguage();
   
-  const [activeTab, setActiveTab] = useState<'org' | 'tax' | 'bank' | 'print' | 'ledgers' | 'cost_centers' | 'fys' | 'pay_modes' | 'security' | 'danger_zone' | 'members' | 'parties'>('org');
+  const [activeTab, setActiveTab] = useState<'org' | 'acct_prefs' | 'tax' | 'bank' | 'print' | 'ledgers' | 'cost_centers' | 'fys' | 'pay_modes' | 'security' | 'danger_zone' | 'members' | 'parties'>('org');
 
   // PIN states
   const [currentPinText, setCurrentPinText] = useState('');
@@ -686,6 +686,14 @@ export const Settings: React.FC = () => {
           Organization Details (संस्था विवरण)
         </button>
         <button
+          onClick={() => setActiveTab('acct_prefs')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            activeTab === 'acct_prefs' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
+          }`}
+        >
+          Accounting Preferences (लेखांकन मोड)
+        </button>
+        <button
           onClick={() => setActiveTab('tax')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
             activeTab === 'tax' ? 'bg-forest-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
@@ -976,29 +984,104 @@ export const Settings: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 2: RULES & TAXES */}
-          {activeTab === 'tax' && (
+          {/* TAB: ACCOUNTING & INTERFACE PREFERENCES */}
+          {activeTab === 'acct_prefs' && (
             <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-6">
-              <h3 className="font-extrabold text-base text-slate-850 dark:text-white">Tax Parameters & Registrations</h3>
+              <h3 className="font-extrabold text-base text-slate-850 dark:text-white">Interface & Accounting Preferences (लेखांकन प्राथमिकताएं)</h3>
               <form onSubmit={handleSave} className="space-y-6 text-xs font-bold text-slate-500">
-                <div className="p-4 bg-forest-50/60 dark:bg-slate-900/60 rounded-2xl border border-forest-100 dark:border-slate-700 space-y-2">
-                  <div className="flex justify-between items-center">
+                <div className="p-5 bg-forest-50/60 dark:bg-slate-900/60 rounded-2xl border border-forest-100 dark:border-slate-700 space-y-3">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <div>
-                      <h4 className="font-extrabold text-sm text-slate-850 dark:text-white">Accounting Mode (लेखांकन मोड)</h4>
-                      <p className="text-[10px] text-slate-500 font-normal">
-                        Simple Mode hides Debit/Credit & shows "पैसा आया / पैसा गया". Professional Mode enables traditional DR/CR.
+                      <h4 className="font-extrabold text-sm text-slate-850 dark:text-white">Accounting Mode (लेखांकन मोड) *</h4>
+                      <p className="text-[11px] text-slate-500 font-normal mt-0.5">
+                        Choose how accounting entries and reports are displayed across the system.
                       </p>
                     </div>
                     <select
                       value={config.accountingMode || 'SIMPLE'}
                       onChange={(e) => setConfig({ ...config, accountingMode: e.target.value as any })}
-                      className="px-3 py-1.5 border rounded-xl bg-white dark:bg-slate-900 font-extrabold text-forest-700 text-xs shadow-xs"
+                      className="px-4 py-2 border rounded-xl bg-white dark:bg-slate-900 font-extrabold text-forest-750 dark:text-forest-400 text-xs shadow-xs"
                     >
-                      <option value="SIMPLE">Simple Mode (आसान मोड - Recommended)</option>
-                      <option value="PROFESSIONAL">Professional Mode (सीए / एकाउंटेंट मोड)</option>
+                      <option value="SIMPLE">Simple Mode (आसान मोड - पैसा आया / पैसा गया)</option>
+                      <option value="PROFESSIONAL">Professional Mode (सीए / एकाउंटेंट मोड - DR / CR)</option>
+                    </select>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-forest-100 dark:border-slate-700 text-[11px] font-normal text-slate-600 dark:text-slate-300">
+                    {config.accountingMode === 'PROFESSIONAL' ? (
+                      <p>✨ <strong>Professional Mode active:</strong> Displays traditional Debit (Dr), Credit (Cr), Double-Entry Journal views, and Trial Balance formatting.</p>
+                    ) : (
+                      <p>✨ <strong>Simple Mode active:</strong> Hides complex accounting jargon (DR/CR). Displays intuitive terms like "पैसा कहाँ से आया", "पैसा कहाँ गया", "नकद", "बैंक", and "आय/व्यय".</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <label>Voucher Number Prefix Format (वाउचर वाउचर नंबर फॉर्मेट)</label>
+                    <input
+                      type="text"
+                      value={config.voucherNumberFormat || 'V-{TYPE}-{NUM}'}
+                      onChange={(e) => setConfig({ ...config, voucherNumberFormat: e.target.value })}
+                      placeholder="V-{TYPE}-{NUM}"
+                      className="w-full px-3 py-2 border rounded-xl font-mono text-slate-800 dark:text-slate-100"
+                    />
+                    <p className="text-[10px] text-slate-400 font-normal">Use &#123;TYPE&#125; for voucher code and &#123;NUM&#125; for sequence.</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label>Receipt Number Format (रसीद नंबर फॉर्मेट)</label>
+                    <input
+                      type="text"
+                      value={config.receiptFormat || 'R-{NUM}'}
+                      onChange={(e) => setConfig({ ...config, receiptFormat: e.target.value })}
+                      placeholder="R-{NUM}"
+                      className="w-full px-3 py-2 border rounded-xl font-mono text-slate-800 dark:text-slate-100"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label>Default GST / Tax Rate (%)</label>
+                    <input
+                      type="number"
+                      value={config.taxRate || 5}
+                      onChange={(e) => setConfig({ ...config, taxRate: Number(e.target.value) })}
+                      placeholder="5"
+                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label>Default Financial Year</label>
+                    <select
+                      value={config.activeFyId || 'fy-2025-26'}
+                      onChange={(e) => setConfig({ ...config, activeFyId: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 font-bold"
+                    >
+                      {fys.map(fy => (
+                        <option key={fy.id} value={fy.id}>{fy.name} ({fy.status})</option>
+                      ))}
                     </select>
                   </div>
                 </div>
+
+                <div className="flex justify-end pt-4">
+                  <button
+                    type="submit"
+                    className="bg-forest-600 hover:bg-forest-750 text-white font-bold px-6 py-2.5 rounded-xl flex items-center space-x-1.5 transition"
+                  >
+                    {savedSuccess ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                    <span>{savedSuccess ? 'Saved successfully!' : 'Save Preferences'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* TAB 2: RULES & TAXES */}
+          {activeTab === 'tax' && (
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-6">
+              <h3 className="font-extrabold text-base text-slate-850 dark:text-white">Tax Parameters & Registrations</h3>
+              <form onSubmit={handleSave} className="space-y-6 text-xs font-bold text-slate-500">
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   
