@@ -278,15 +278,18 @@ export const AccountingReports: React.FC = () => {
   };
 
   const menuOptions = [
-    { id: 'trial_balance', label: 'Trial Balance Sheet' },
-    { id: 'day_book', label: 'Day Book Ledger' },
-    { id: 'general_ledger', label: 'General Ledger Search' },
-    { id: 'income_expenditure', label: 'Income & Expenditures' },
-    { id: 'balance_sheet', label: 'Balance Sheet Statements' },
-    { id: 'depreciation', label: 'Asset Depreciation' },
-    ...(config.enable80G !== false ? [{ id: 'donation_register', label: 'Donation Receipt Log (80G)' }] : []),
-    { id: 'category_wise', label: 'Category Wise Report' },
-    { id: 'cost_center_wise', label: 'Cost Center Report' }
+    { id: 'trial_balance', label: language === 'hi' ? 'ट्रायल बैलेंस शीट (Trial Balance)' : 'Trial Balance Sheet' },
+    { id: 'day_book', label: language === 'hi' ? 'डे बुक लेजर (Day Book)' : 'Day Book Ledger' },
+    { id: 'bank_book', label: language === 'hi' ? 'बैंक बुक रजिस्टर (Bank Book)' : 'Bank Book Register' },
+    { id: 'cash_book', label: language === 'hi' ? 'कैश बुक रजिस्टर (Cash Book)' : 'Cash Book Register' },
+    { id: 'general_ledger', label: language === 'hi' ? 'खाता बही (General Ledger)' : 'General Ledger Search' },
+    { id: 'income_expenditure', label: language === 'hi' ? 'आय-व्यय विवरण (Income & Expenditure)' : 'Income & Expenditure' },
+    { id: 'balance_sheet', label: language === 'hi' ? 'बैलेंस शीट (Balance Sheet)' : 'Balance Sheet Statements' },
+    { id: 'loan_report', label: language === 'hi' ? 'बकाया ऋण रिपोर्ट (Outstanding Loans)' : 'Outstanding Loan Report' },
+    { id: 'depreciation', label: language === 'hi' ? 'अचल संपत्ति व ह्रास (Depreciation)' : 'Asset Depreciation' },
+    ...(config.enable80G !== false ? [{ id: 'donation_register', label: language === 'hi' ? 'दान रसीद रजिस्टर (80G Log)' : 'Donation Receipt Log (80G)' }] : []),
+    { id: 'category_wise', label: language === 'hi' ? 'श्रेणीवार रिपोर्ट (Category Wise)' : 'Category Wise Report' },
+    { id: 'cost_center_wise', label: language === 'hi' ? 'लागत केंद्र रिपोर्ट (Cost Center)' : 'Cost Center Report' }
   ];
 
   return (
@@ -839,6 +842,114 @@ export const AccountingReports: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* REPORT 10: BANK BOOK */}
+        {selectedReport === 'bank_book' && (
+          <div className="space-y-4">
+            <h4 className="font-extrabold text-sm text-slate-800 dark:text-white">
+              {language === 'hi' ? 'सक्रिय बैंक खाते एवं लेन-देन' : 'Active Bank Book Transactions'}
+            </h4>
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
+                    <th className="pb-3 pl-2">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                    <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
+                    <th className="pb-3">{language === 'hi' ? 'बैंक खाता' : 'Bank Account'}</th>
+                    <th className="pb-3">{language === 'hi' ? 'विवरण' : 'Particulars'}</th>
+                    <th className="pb-3 text-right">{language === 'hi' ? 'आवक (Debit)' : 'Bank In (Dr)'}</th>
+                    <th className="pb-3 text-right">{language === 'hi' ? 'जावक (Credit)' : 'Bank Out (Cr)'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                  {vouchers.filter(v => v.status === 'POSTED' && v.entries.some(e => e.ledgerId !== 'l-cash' && ledgers.find(l => l.id === e.ledgerId)?.groupId === 'g-current-assets')).map(v => {
+                    const bankEntry = v.entries.find(e => e.ledgerId !== 'l-cash' && ledgers.find(l => l.id === e.ledgerId)?.groupId === 'g-current-assets');
+                    if (!bankEntry) return null;
+                    const bankL = ledgers.find(l => l.id === bankEntry.ledgerId);
+                    return (
+                      <tr key={v.id}>
+                        <td className="py-3 pl-2 font-bold">{v.voucherNumber}</td>
+                        <td className="py-3">{v.date}</td>
+                        <td className="py-3 font-bold text-forest-650">{formatBilingual(bankL?.name || '', language)}</td>
+                        <td className="py-3">{v.narration}</td>
+                        <td className="py-3 text-right font-bold text-forest-600">{bankEntry.isDebit ? `₹${bankEntry.amount.toLocaleString()}` : '—'}</td>
+                        <td className="py-3 text-right font-bold text-red-500">{!bankEntry.isDebit ? `₹${bankEntry.amount.toLocaleString()}` : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* REPORT 11: CASH BOOK */}
+        {selectedReport === 'cash_book' && (
+          <div className="space-y-4">
+            <h4 className="font-extrabold text-sm text-slate-800 dark:text-white">
+              {language === 'hi' ? 'नकद बही खाता (Cash Book Register)' : 'Cash Book Transaction Register'}
+            </h4>
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
+                    <th className="pb-3 pl-2">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                    <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
+                    <th className="pb-3">{language === 'hi' ? 'विवरण' : 'Particulars'}</th>
+                    <th className="pb-3 text-right">{language === 'hi' ? 'नकद आवक (In)' : 'Cash In (Dr)'}</th>
+                    <th className="pb-3 text-right">{language === 'hi' ? 'नकद जावक (Out)' : 'Cash Out (Cr)'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                  {vouchers.filter(v => v.status === 'POSTED' && v.entries.some(e => e.ledgerId === 'l-cash')).map(v => {
+                    const cashEntry = v.entries.find(e => e.ledgerId === 'l-cash');
+                    if (!cashEntry) return null;
+                    return (
+                      <tr key={v.id}>
+                        <td className="py-3 pl-2 font-bold">{v.voucherNumber}</td>
+                        <td className="py-3">{v.date}</td>
+                        <td className="py-3">{v.narration}</td>
+                        <td className="py-3 text-right font-bold text-forest-600">{cashEntry.isDebit ? `₹${cashEntry.amount.toLocaleString()}` : '—'}</td>
+                        <td className="py-3 text-right font-bold text-red-500">{!cashEntry.isDebit ? `₹${cashEntry.amount.toLocaleString()}` : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* REPORT 12: OUTSTANDING LOANS */}
+        {selectedReport === 'loan_report' && (
+          <div className="space-y-4">
+            <h4 className="font-extrabold text-sm text-slate-850 dark:text-white">
+              {language === 'hi' ? 'बकाया ऋण रिपोर्ट (Outstanding Loans & Liabilities)' : 'Outstanding Loan Liability Report'}
+            </h4>
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
+                    <th className="pb-3 pl-2">{language === 'hi' ? 'ऋणदाता बैंक / संस्था' : 'Lender Institution'}</th>
+                    <th className="pb-3">{language === 'hi' ? 'ब्याज दर (%)' : 'Interest Rate'}</th>
+                    <th className="pb-3 text-right">{language === 'hi' ? 'स्वीकृत मूलधन' : 'Principal Amount'}</th>
+                    <th className="pb-3 text-right">{language === 'hi' ? 'बकाया राशि' : 'Outstanding Balance'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                  {GoshalaDB.getTable<any>('loans').map((loan: any) => (
+                    <tr key={loan.id}>
+                      <td className="py-3 pl-2 font-bold text-slate-850 dark:text-white">{loan.partyName}</td>
+                      <td className="py-3">{loan.interestRate}% p.a.</td>
+                      <td className="py-3 text-right font-bold">₹{loan.principalAmount.toLocaleString()}</td>
+                      <td className="py-3 text-right font-black text-red-600">₹{loan.outstandingAmount.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

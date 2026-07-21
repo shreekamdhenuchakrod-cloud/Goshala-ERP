@@ -3,7 +3,7 @@ import { GoshalaDB } from '../db/db';
 import { ERPConfig, Ledger, CostCenter, LedgerGroup, Voucher, CRMContact } from '../db/schema';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
-import { Save, Download, UploadCloud, RotateCcw, Check, Trash, Plus, Edit3, UserCheck, Search } from 'lucide-react';
+import { Save, Download, UploadCloud, RotateCcw, Check, Trash, Plus, Edit3, UserCheck, Search, Folder, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface SamitiMember {
   id: string;
@@ -72,6 +72,13 @@ export const Settings: React.FC = () => {
 
   // Bank Balances states
   const [ledgersList, setLedgersList] = useState<Ledger[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
+    ASSET: true,
+    LIABILITY: true,
+    INCOME: true,
+    EXPENSE: true,
+    CAPITAL: true
+  });
   const [bankBalances, setBankBalances] = useState<Record<string, number>>({});
   const [newBankName, setNewBankName] = useState('');
   const [newBankCode, setNewBankCode] = useState('');
@@ -1312,59 +1319,79 @@ export const Settings: React.FC = () => {
           {activeTab === 'ledgers' && (
             <div className="space-y-6">
               
-              {/* List of active ledgers */}
+              {/* List of active ledgers in Folder Tree */}
               <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
-                <h3 className="font-extrabold text-sm text-slate-850 dark:text-white">Active Accounts List (खातों की सूची)</h3>
-                
-                <div className="overflow-x-auto text-xs">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100 dark:border-slate-750 text-slate-400 font-semibold uppercase">
-                        <th className="pb-2">Code</th>
-                        <th className="pb-2">Account Name</th>
-                        <th className="pb-2">Type</th>
-                        <th className="pb-2 text-right">Opening Bal</th>
-                        <th className="pb-2 text-right pr-2">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50 dark:divide-slate-750">
-                      {ledgersList.map(l => (
-                        <tr key={l.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10">
-                          <td className="py-2.5 font-bold font-mono text-slate-800 dark:text-slate-200">{l.code}</td>
-                          <td className="py-2.5 font-semibold text-slate-700 dark:text-slate-350">{l.name}</td>
-                          <td className="py-2.5">
-                            <span className={`px-2 py-0.5 rounded text-[8px] font-black ${
-                              l.type === 'EXPENSE' ? 'bg-red-50 text-red-600' :
-                              l.type === 'INCOME' ? 'bg-forest-50 text-forest-650' :
-                              l.type === 'ASSET' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-600'
-                            }`}>
-                              {l.type}
-                            </span>
-                          </td>
-                          <td className="py-2.5 text-right font-bold">₹{l.openingBalance.toLocaleString()}</td>
-                          <td className="py-2.5 text-right pr-2 space-x-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setEditingLedger(l)}
-                              className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-650 rounded font-bold text-[10px]"
-                            >
-                              Edit
-                            </button>
-                            {!l.isSystem && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteLedger(l.id)}
-                                className="px-2 py-0.5 bg-red-50 hover:bg-red-100 text-red-500 rounded font-bold text-[10px]"
-                              >
-                                Delete
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="flex justify-between items-center pb-2 border-b">
+                  <h3 className="font-extrabold text-sm text-slate-850 dark:text-white">Chart of Accounts Folder Tree (खाता निर्देशिका)</h3>
+                  <span className="text-[10px] text-slate-400 font-bold">{ledgersList.length} Accounts Registered</span>
                 </div>
+                
+                {/* Folder Groups */}
+                {[
+                  { key: 'ASSET', title: '📁 1. ASSETS (संपत्तियां)', subtitle: 'Cash, Banks, Fixed Assets & Receivables', color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/20' },
+                  { key: 'LIABILITY', title: '📁 2. LIABILITIES (देनदारियां व ऋण)', subtitle: 'Bank Loans, Private Borrowings & Creditors', color: 'text-red-600 bg-red-50 dark:bg-red-950/20' },
+                  { key: 'INCOME', title: '📁 3. INCOME (आय खाता)', subtitle: 'Donations, Grants, Milk/Dung Sales', color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20' },
+                  { key: 'EXPENSE', title: '📁 4. EXPENSES (व्यय खाता)', subtitle: 'Fodder, Wages, Electricity, Maintenance', color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/20' },
+                  { key: 'CAPITAL', title: '📁 5. EQUITY / CAPITAL (पूंजी व संचय)', subtitle: 'Corpus Funds & Reserve Funds', color: 'text-purple-600 bg-purple-50 dark:bg-purple-950/20' }
+                ].map(group => {
+                  const isExp = expandedFolders[group.key] !== false;
+                  const groupLedgers = ledgersList.filter(l => l.type === group.key);
+
+                  return (
+                    <div key={group.key} className="border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden text-xs">
+                      <div
+                        onClick={() => setExpandedFolders({ ...expandedFolders, [group.key]: !isExp })}
+                        className={`p-3 flex justify-between items-center cursor-pointer select-none font-bold ${group.color}`}
+                      >
+                        <div className="flex items-center space-x-2">
+                          {isExp ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                          <span className="font-extrabold text-xs">{group.title}</span>
+                          <span className="text-[10px] opacity-75 font-normal">({group.subtitle})</span>
+                        </div>
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white/60 dark:bg-slate-900/60">
+                          {groupLedgers.length} Accounts
+                        </span>
+                      </div>
+
+                      {isExp && (
+                        <div className="p-3 bg-slate-50/50 dark:bg-slate-900/40 divide-y divide-slate-100 dark:divide-slate-800">
+                          {groupLedgers.length === 0 ? (
+                            <p className="text-[11px] text-slate-400 italic py-2">No accounts in this folder group.</p>
+                          ) : groupLedgers.map(l => (
+                            <div key={l.id} className="py-2.5 flex justify-between items-center hover:bg-white dark:hover:bg-slate-800/80 px-2 rounded-xl transition">
+                              <div className="flex items-center space-x-3">
+                                <span className="font-mono text-[10px] font-bold text-slate-400">[{l.code}]</span>
+                                <div>
+                                  <h4 className="font-bold text-slate-800 dark:text-white text-xs">{l.name}</h4>
+                                  <p className="text-[9px] text-slate-400">Group ID: {l.groupId} • Current Bal: ₹{l.currentBalance.toLocaleString()}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className="font-bold text-[10px] text-slate-500">Op: ₹{l.openingBalance.toLocaleString()}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingLedger(l)}
+                                  className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-650 rounded-lg font-bold text-[10px]"
+                                >
+                                  Edit
+                                </button>
+                                {!l.isSystem && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteLedger(l.id)}
+                                    className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg font-bold text-[10px]"
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
                 {/* Add Custom Ledger Form */}
                 <form onSubmit={handleAddLedger} className="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-2xl border space-y-3 text-xs font-bold text-slate-500">

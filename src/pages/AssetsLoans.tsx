@@ -1,22 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { GoshalaDB } from '../db/db';
-import { Ledger, Loan } from '../db/schema';
+import { Ledger, Loan, Voucher } from '../db/schema';
 import { useAuth } from '../hooks/useAuth';
-import { Plus, Trash, Edit3, Landmark, Hammer, BadgeInfo, Tractor, X } from 'lucide-react';
+import { useLanguage, formatBilingual } from '../hooks/useLanguage';
+import { Plus, Trash, Edit3, Landmark, Hammer, BadgeInfo, Tractor, X, DollarSign, Calendar, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 
 export const AssetsLoans: React.FC = () => {
   const { user } = useAuth();
+  const { language, t } = useLanguage();
   
   const [fixedAssets, setFixedAssets] = useState<Ledger[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [repayVouchers, setRepayVouchers] = useState<Voucher[]>([]);
 
   // Modals visibility
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [showLoanModal, setShowLoanModal] = useState(false);
+  const [showRepayModal, setShowRepayModal] = useState(false);
   
-  // Selected items for Edit
+  // Selected items for Edit/Repay
   const [editingAsset, setEditingAsset] = useState<Ledger | null>(null);
   const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
+  const [selectedRepayLoan, setSelectedRepayLoan] = useState<Loan | null>(null);
 
   // Form states
   const [assetForm, setAssetForm] = useState({
@@ -32,6 +37,15 @@ export const AssetsLoans: React.FC = () => {
     reason: ''
   });
 
+  const [repayForm, setRepayForm] = useState({
+    principalPaid: 5000,
+    interestPaid: 500,
+    paymentMode: 'BANK_UPI',
+    payFromLedger: 'l-bank-boi',
+    date: new Date().toISOString().split('T')[0],
+    notes: 'Loan EMI repayment'
+  });
+
   useEffect(() => {
     loadData();
   }, []);
@@ -39,7 +53,13 @@ export const AssetsLoans: React.FC = () => {
   const loadData = () => {
     const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
     setFixedAssets(ledgers.filter(l => l.groupId === 'g-fixed-assets'));
-    setLoans(GoshalaDB.getTable<Loan>('loans'));
+    
+    const allLoans = GoshalaDB.getTable<Loan>('loans');
+    setLoans(allLoans);
+
+    const allVouchers = GoshalaDB.getTable<Voucher>('vouchers');
+    const loanRepays = allVouchers.filter(v => v.voucherType === 'LOAN_REPAYMENT' || v.narration.toLowerCase().includes('loan repayment') || v.narration.toLowerCase().includes('ऋण'));
+    setRepayVouchers(loanRepays.reverse());
   };
 
   const handleOpenAssetCreate = () => {
@@ -61,7 +81,6 @@ export const AssetsLoans: React.FC = () => {
   };
 
   const handleOpenLoanEdit = (loan: Loan) => {
-    // Try to find the purpose from liability ledger if reason is empty
     const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
     const ledger = ledgers.find(l => l.name.startsWith(loan.partyName));
     let purpose = '';
@@ -76,9 +95,22 @@ export const AssetsLoans: React.FC = () => {
       principal: loan.principalAmount,
       interestRate: loan.interestRate,
       installments: loan.installments,
-      reason: purpose || (loan.id === 'loan-1' || loan.id === 'l-loan-sbi-construction' ? 'Cow Shed Construction' : 'Tractor Purchase')
+      reason: purpose || 'Cow Shed Construction'
     });
     setShowLoanModal(true);
+  };
+
+  const handleOpenRepayModal = (loan: Loan) => {
+    setSelectedRepayLoan(loan);
+    setRepayForm({
+      principalPaid: Math.min(5000, loan.outstandingAmount),
+      interestPaid: Math.round((loan.outstandingAmount * (loan.interestRate / 100)) / 12),
+      paymentMode: 'BANK_UPI',
+      payFromLedger: 'l-bank-boi',
+      date: new Date().toISOString().split('T')[0],
+      notes: `Monthly EMI repayment to ${loan.partyName}`
+    });
+    setShowRepayModal(true);
   };
 
   const handleAssetSubmit = (e: React.FormEvent) => {
@@ -88,7 +120,6 @@ export const AssetsLoans: React.FC = () => {
     const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
 
     if (editingAsset) {
-      // Edit mode
       const target = ledgers.find(l => l.id === editingAsset.id);
       if (target) {
         target.name = assetForm.name;
@@ -97,7 +128,6 @@ export const AssetsLoans: React.FC = () => {
       }
       GoshalaDB.saveTable('ledgers', ledgers);
       
-      // Update its journal voucher if exists
       const vouchers = GoshalaDB.getTable<any>('vouchers');
       const vIdx = vouchers.findIndex((v: any) => v.entries.some((ent: any) => ent.ledgerId === editingAsset.id));
       if (vIdx >= 0) {
@@ -108,9 +138,8 @@ export const AssetsLoans: React.FC = () => {
         GoshalaDB.saveTable('vouchers', vouchers);
       }
       GoshalaDB.recalculateLedgers();
-      alert('Fixed Asset updated successfully!');
+      alert(language === 'hi' ? 'अचल संपत्ति सफलतापूर्वक अपडेट की गई!' : 'Fixed Asset updated successfully!');
     } else {
-      // Create mode
       const codeCount = 1100 + ledgers.filter(l => l.groupId === 'g-fixed-assets').length + 1;
       const newAssetLedger: Ledger = {
         id: `l-fa-${Date.now()}`,
@@ -126,7 +155,6 @@ export const AssetsLoans: React.FC = () => {
       ledgers.push(newAssetLedger);
       GoshalaDB.saveTable('ledgers', ledgers);
       
-      // Auto balance
       const config = GoshalaDB.getTable<any>('config')[0] || { activeFyId: 'fy-2025-26' };
       const voucher = {
         id: `v-fa-${Date.now()}`,
@@ -146,7 +174,7 @@ export const AssetsLoans: React.FC = () => {
       };
 
       GoshalaDB.saveVoucher(voucher, { name: user.name, role: user.role });
-      alert('New Fixed Asset registered!');
+      alert(language === 'hi' ? 'नई अचल संपत्ति सफलतापूर्वक पंजीकृत!' : 'New Fixed Asset registered!');
     }
 
     setShowAssetModal(false);
@@ -154,20 +182,18 @@ export const AssetsLoans: React.FC = () => {
   };
 
   const handleAssetDelete = (id: string) => {
-    if (!window.confirm('क्या आप सचमुच इस अचल संपत्ति को हटाना चाहते हैं?')) return;
+    if (!window.confirm(language === 'hi' ? 'क्या आप सचमुच इस अचल संपत्ति को हटाना चाहते हैं?' : 'Are you sure you want to delete this asset?')) return;
     
-    // Remove ledger
     const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
     const filteredLedgers = ledgers.filter(l => l.id !== id);
     GoshalaDB.saveTable('ledgers', filteredLedgers);
 
-    // Remove matching journal voucher
     const vouchers = GoshalaDB.getTable<any>('vouchers');
     const filteredVouchers = vouchers.filter((v: any) => !v.entries.some((ent: any) => ent.ledgerId === id));
     GoshalaDB.saveTable('vouchers', filteredVouchers);
 
     GoshalaDB.recalculateLedgers();
-    alert('Asset deleted successfully!');
+    alert(language === 'hi' ? 'संपत्ति सफलतापूर्वक हटाई गई!' : 'Asset deleted successfully!');
     loadData();
   };
 
@@ -179,7 +205,6 @@ export const AssetsLoans: React.FC = () => {
     const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
 
     if (editingLoan) {
-      // Edit Mode
       const targetLoan = allLoans.find(l => l.id === editingLoan.id);
       if (targetLoan) {
         targetLoan.partyName = loanForm.partyName;
@@ -190,8 +215,6 @@ export const AssetsLoans: React.FC = () => {
       }
       GoshalaDB.saveTable('loans', allLoans);
 
-      // Find and update liability ledger
-      // It is named after the bank name or matches its code / ID
       const targetLedger = ledgers.find(l => l.name.startsWith(editingLoan.partyName) || l.id.includes(editingLoan.id));
       if (targetLedger) {
         targetLedger.name = `${loanForm.partyName} Loan (${loanForm.reason})`;
@@ -200,7 +223,6 @@ export const AssetsLoans: React.FC = () => {
       }
       GoshalaDB.saveTable('ledgers', ledgers);
 
-      // Update cash/bank receipt voucher
       const vouchers = GoshalaDB.getTable<any>('vouchers');
       const vIdx = vouchers.findIndex((v: any) => v.entries.some((ent: any) => ent.ledgerId === targetLedger?.id));
       if (vIdx >= 0) {
@@ -212,9 +234,8 @@ export const AssetsLoans: React.FC = () => {
       }
 
       GoshalaDB.recalculateLedgers();
-      alert('Loan details updated successfully!');
+      alert(language === 'hi' ? 'ऋण विवरण सफलतापूर्वक अपडेट हुआ!' : 'Loan details updated successfully!');
     } else {
-      // Create Mode
       const newLoan: Loan = {
         id: `loan-${Date.now()}`,
         type: 'TAKEN',
@@ -230,7 +251,6 @@ export const AssetsLoans: React.FC = () => {
       allLoans.push(newLoan);
       GoshalaDB.saveTable('loans', allLoans);
 
-      // Create Ledger
       const newLoanLedger: Ledger = {
         id: `l-loan-${newLoan.id}`,
         groupId: 'g-loans-liab',
@@ -244,7 +264,6 @@ export const AssetsLoans: React.FC = () => {
       ledgers.push(newLoanLedger);
       GoshalaDB.saveTable('ledgers', ledgers);
 
-      // Save voucher
       const config = GoshalaDB.getTable<any>('config')[0] || { activeFyId: 'fy-2025-26' };
       const voucher = {
         id: `v-loan-${Date.now()}`,
@@ -255,7 +274,7 @@ export const AssetsLoans: React.FC = () => {
         status: 'POSTED' as const,
         narration: `Disbursed loan from ${loanForm.partyName} for: ${loanForm.reason}`,
         entries: [
-          { ledgerId: 'l-bank-sbi', amount: Number(loanForm.principal), isDebit: true },
+          { ledgerId: 'l-bank-boi', amount: Number(loanForm.principal), isDebit: true },
           { ledgerId: newLoanLedger.id, amount: Number(loanForm.principal), isDebit: false }
         ],
         attachments: [],
@@ -263,41 +282,119 @@ export const AssetsLoans: React.FC = () => {
       };
 
       GoshalaDB.saveVoucher(voucher, { name: user.name, role: user.role });
-      alert('New borrowing recorded and SBI Bank ledger updated!');
+      alert(language === 'hi' ? 'नया ऋण दर्ज किया गया एवं बैंक खाता अपडेट हुआ!' : 'New loan borrowing recorded!');
     }
 
     setShowLoanModal(false);
     loadData();
   };
 
-  const handleLoanDelete = (loanId: string) => {
-    if (!window.confirm('क्या आप सचमुच इस ऋण (Loan) को हटाना चाहते हैं?')) return;
+  const handleRepaySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRepayLoan || repayForm.principalPaid <= 0) return alert('Invalid principal amount');
 
-    // Delete loan record
+    const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
+    let loanLedger = ledgers.find(l => l.name.startsWith(selectedRepayLoan.partyName) || l.id.includes(selectedRepayLoan.id));
+    if (!loanLedger) {
+      loanLedger = ledgers.find(l => l.groupId === 'g-loans-liabilities' || l.groupId === 'g-loans-liab' || l.type === 'LIABILITY');
+    }
+    if (!loanLedger) return alert('Loan liability ledger not found.');
+
+    const config = GoshalaDB.getTable<any>('config')[0] || { activeFyId: 'fy-2025-26' };
+    const totalPaid = Number(repayForm.principalPaid) + Number(repayForm.interestPaid);
+
+    let interestLedger = ledgers.find(l => l.id === 'l-exp-interest' || l.name.includes('Interest') || l.name.includes('ब्याज'));
+    if (!interestLedger && repayForm.interestPaid > 0) {
+      interestLedger = {
+        id: 'l-exp-interest',
+        code: '5010',
+        name: 'Loan Interest Expense (ऋण ब्याज व्यय)',
+        groupId: 'g-indirect-expenses',
+        type: 'EXPENSE',
+        openingBalance: 0,
+        currentBalance: 0
+      };
+      ledgers.push(interestLedger);
+      GoshalaDB.saveTable('ledgers', ledgers);
+    }
+
+    const entries = [
+      { ledgerId: loanLedger.id, amount: Number(repayForm.principalPaid), isDebit: true },
+      ...(repayForm.interestPaid > 0 && interestLedger ? [{ ledgerId: interestLedger.id, amount: Number(repayForm.interestPaid), isDebit: true }] : []),
+      { ledgerId: repayForm.payFromLedger, amount: totalPaid, isDebit: false }
+    ];
+
+    const voucher: Voucher = {
+      id: `v-repay-${Date.now()}`,
+      fyId: config.activeFyId,
+      voucherNumber: '',
+      voucherType: 'LOAN_REPAYMENT',
+      date: repayForm.date,
+      status: 'POSTED',
+      narration: `[${selectedRepayLoan.partyName}] Loan Repayment - Principal: ₹${repayForm.principalPaid}, Interest: ₹${repayForm.interestPaid}. ${repayForm.notes}`,
+      entries,
+      attachments: [],
+      paymentMode: repayForm.paymentMode as any,
+      referenceDetails: `${repayForm.paymentMode} • EMI Repayment`,
+      auditTrail: []
+    };
+
+    GoshalaDB.saveVoucher(voucher, { name: user.name, role: user.role });
+
+    // Update loan outstanding amount in loans table
+    const allLoans = GoshalaDB.getTable<Loan>('loans');
+    const targetLoan = allLoans.find(l => l.id === selectedRepayLoan.id);
+    if (targetLoan) {
+      targetLoan.outstandingAmount = Math.max(0, targetLoan.outstandingAmount - Number(repayForm.principalPaid));
+      targetLoan.history = targetLoan.history || [];
+      targetLoan.history.push({
+        date: repayForm.date,
+        amount: `₹${totalPaid}`,
+        principal: Number(repayForm.principalPaid),
+        interest: Number(repayForm.interestPaid)
+      });
+      GoshalaDB.saveTable('loans', allLoans);
+    }
+
+    GoshalaDB.recalculateLedgers();
+    alert(language === 'hi' ? 'ऋण किश्त सफलतापूर्वक दर्ज की गई! बकाया ऋण राशि कम कर दी गई है।' : 'Loan Repayment posted successfully! Outstanding loan reduced.');
+    setShowRepayModal(false);
+    loadData();
+  };
+
+  const handleLoanDelete = (loanId: string) => {
+    if (!window.confirm(language === 'hi' ? 'क्या आप सचमुच इस ऋण (Loan) को हटाना चाहते हैं?' : 'Are you sure you want to delete this loan?')) return;
+
     const allLoans = GoshalaDB.getTable<Loan>('loans');
     const filteredLoans = allLoans.filter(l => l.id !== loanId);
     GoshalaDB.saveTable('loans', filteredLoans);
 
-    // Delete ledger
     const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
     const filteredLedgers = ledgers.filter(l => !l.id.includes(loanId));
     GoshalaDB.saveTable('ledgers', filteredLedgers);
 
-    // Delete voucher
     const vouchers = GoshalaDB.getTable<any>('vouchers');
     const filteredVouchers = vouchers.filter((v: any) => !v.entries.some((ent: any) => ent.ledgerId.includes(loanId)));
     GoshalaDB.saveTable('vouchers', filteredVouchers);
 
     GoshalaDB.recalculateLedgers();
-    alert('Loan record deleted!');
+    alert(language === 'hi' ? 'ऋण रिकॉर्ड हटा दिया गया!' : 'Loan record deleted!');
     loadData();
   };
+
+  // Calculations for vitals overview
+  const totalAssetsVal = fixedAssets.reduce((sum, fa) => sum + fa.currentBalance, 0);
+  const totalPrincipalBorrowed = loans.reduce((sum, l) => sum + l.principalAmount, 0);
+  const totalOutstandingLoan = loans.reduce((sum, l) => sum + l.outstandingAmount, 0);
+  const totalPaidOff = Math.max(0, totalPrincipalBorrowed - totalOutstandingLoan);
 
   const getAssetIcon = (name: string) => {
     const n = name.toLowerCase();
     if (n.includes('tractor') || n.includes(' vehicle')) return <Tractor className="w-5 h-5 text-saffron-650" />;
     return <Hammer className="w-5 h-5 text-forest-600" />;
   };
+
+  const bankCashLedgers = GoshalaDB.getTable<Ledger>('ledgers').filter(l => l.groupId === 'g-current-assets' && l.id !== 'l-tds-receivable');
 
   return (
     <div className="space-y-8">
@@ -307,9 +404,54 @@ export const AssetsLoans: React.FC = () => {
         <div>
           <h2 className="text-2xl font-extrabold text-slate-800 dark:text-white flex items-center space-x-2">
             <span className="w-2.5 h-6 bg-saffron-550 rounded-full inline-block"></span>
-            <span>अचल संपत्ति और बकाया ऋण (Assets & Loans)</span>
+            <span>{language === 'hi' ? 'अचल संपत्ति एवं बकाया ऋण (Assets & Loans)' : 'Fixed Assets & Loans Management'}</span>
           </h2>
-          <p className="text-slate-500 text-xs dark:text-slate-400 mt-1">Manage Fixed Assets and track loans taken with purpose details</p>
+          <p className="text-slate-500 text-xs dark:text-slate-400 mt-1">
+            {language === 'hi' ? 'अचल संपत्तियों का प्रबंधन, बकाया ऋण ट्रैक करें एवं किश्त (EMI Repayment) जमा करें' : 'Manage Fixed Assets, track borrowed loans, and post EMI repayments'}
+          </p>
+        </div>
+      </div>
+
+      {/* Vitals Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2">
+          <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">
+            {language === 'hi' ? 'कुल अचल संपत्ति (Fixed Assets)' : 'Total Fixed Assets'}
+          </span>
+          <p className="text-2xl font-black text-forest-650">₹{totalAssetsVal.toLocaleString()}</p>
+          <span className="text-[9px] text-forest-600 font-bold bg-forest-50 dark:bg-forest-950/20 px-2 py-0.5 rounded-full inline-block">
+            {fixedAssets.length} {language === 'hi' ? 'पंजीकृत संपत्तियां' : 'Registered Assets'}
+          </span>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2">
+          <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">
+            {language === 'hi' ? 'कुल स्वीकृत ऋण (Total Borrowed)' : 'Total Principal Borrowed'}
+          </span>
+          <p className="text-2xl font-black text-slate-800 dark:text-white">₹{totalPrincipalBorrowed.toLocaleString()}</p>
+          <span className="text-[9px] text-slate-500 font-bold bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full inline-block">
+            {loans.length} {language === 'hi' ? 'सक्रिय ऋण खाते' : 'Active Loan Accounts'}
+          </span>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2">
+          <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">
+            {language === 'hi' ? 'बकाया ऋण मूलधन (Outstanding)' : 'Outstanding Principal'}
+          </span>
+          <p className="text-2xl font-black text-red-550">₹{totalOutstandingLoan.toLocaleString()}</p>
+          <span className="text-[9px] text-red-600 font-bold bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded-full inline-block">
+            {language === 'hi' ? 'सक्रिय देनदारी' : 'Remaining Liability'}
+          </span>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2">
+          <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">
+            {language === 'hi' ? 'चुकाया गया मूलधन (Principal Repaid)' : 'Principal Repaid'}
+          </span>
+          <p className="text-2xl font-black text-emerald-600">₹{totalPaidOff.toLocaleString()}</p>
+          <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full inline-block">
+            {language === 'hi' ? 'सफलतापूर्वक चुकता' : 'Successfully Paid Off'}
+          </span>
         </div>
       </div>
 
@@ -318,25 +460,29 @@ export const AssetsLoans: React.FC = () => {
         {/* Fixed Assets Registry */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
           <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-700/60">
-            <h3 className="font-extrabold text-sm text-slate-850 dark:text-white">अचल संपत्ति (Fixed Assets)</h3>
+            <h3 className="font-extrabold text-sm text-slate-850 dark:text-white">
+              {language === 'hi' ? 'अचल संपत्ति रजिस्टर (Fixed Assets)' : 'Fixed Assets Register'}
+            </h3>
             <button
               onClick={handleOpenAssetCreate}
               className="text-xs font-bold text-forest-600 hover:underline flex items-center space-x-1"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Add Fixed Asset</span>
+              <span>{language === 'hi' ? '+ नई संपत्ति जोड़ें' : 'Add Fixed Asset'}</span>
             </button>
           </div>
 
           <div className="space-y-3.5">
-            {fixedAssets.map(fa => (
+            {fixedAssets.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-4 text-center">{language === 'hi' ? 'कोई अचल संपत्ति दर्ज नहीं है।' : 'No fixed assets recorded.'}</p>
+            ) : fixedAssets.map(fa => (
               <div key={fa.id} className="p-4 bg-slate-50/50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-750 flex items-center justify-between">
                 <div className="flex items-center space-x-3.5">
                   <div className="w-10 h-10 bg-slate-100 dark:bg-slate-850 rounded-xl flex items-center justify-center">
                     {getAssetIcon(fa.name)}
                   </div>
                   <div>
-                    <h4 className="font-bold text-slate-800 dark:text-white text-xs">{fa.name}</h4>
+                    <h4 className="font-bold text-slate-800 dark:text-white text-xs">{formatBilingual(fa.name, language)}</h4>
                     <p className="text-[10px] text-slate-450">Code: {fa.code} • ₹{fa.currentBalance.toLocaleString()} WDV</p>
                   </div>
                 </div>
@@ -365,19 +511,22 @@ export const AssetsLoans: React.FC = () => {
         {/* Outstanding Loans Registry */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
           <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-700/60">
-            <h3 className="font-extrabold text-sm text-slate-850 dark:text-white">बकाया ऋण (Outstanding Loans)</h3>
+            <h3 className="font-extrabold text-sm text-slate-850 dark:text-white">
+              {language === 'hi' ? 'बकाया ऋण खाते (Outstanding Loans)' : 'Outstanding Loan Accounts'}
+            </h3>
             <button
               onClick={handleOpenLoanCreate}
               className="text-xs font-bold text-saffron-650 hover:underline flex items-center space-x-1"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Add Borrowing Loan</span>
+              <span>{language === 'hi' ? '+ नया ऋण जोड़ें' : 'Add Loan Borrowing'}</span>
             </button>
           </div>
 
           <div className="space-y-3.5">
-            {loans.map(loan => {
-              // Extract purpose text
+            {loans.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-4 text-center">{language === 'hi' ? 'कोई बकाया ऋण खाता नहीं है।' : 'No outstanding loans recorded.'}</p>
+            ) : loans.map(loan => {
               const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
               const ledger = ledgers.find(l => l.name.startsWith(loan.partyName) || l.id.includes(loan.id));
               let purpose = '';
@@ -395,11 +544,17 @@ export const AssetsLoans: React.FC = () => {
                       </div>
                       <div>
                         <h4 className="font-bold text-slate-800 dark:text-white text-xs">{loan.partyName}</h4>
-                        <p className="text-[10px] text-slate-400">Interest Rate: {loan.interestRate}% • Bal: ₹{loan.outstandingAmount.toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-400">Interest: {loan.interestRate}% p.a. • Original: ₹{loan.principalAmount.toLocaleString()}</p>
                       </div>
                     </div>
                     
                     <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => handleOpenRepayModal(loan)}
+                        className="px-2.5 py-1 bg-forest-600 hover:bg-forest-750 text-white rounded-lg text-[10px] font-bold shadow-xs cursor-pointer"
+                      >
+                        {language === 'hi' ? 'किश्त चुकाएं (EMI)' : 'Pay EMI'}
+                      </button>
                       <button
                         onClick={() => handleOpenLoanEdit(loan)}
                         className="p-1.5 hover:bg-indigo-50 dark:hover:bg-slate-700 text-indigo-650 rounded-lg border border-transparent hover:border-indigo-100"
@@ -417,9 +572,14 @@ export const AssetsLoans: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-750 text-[10px] flex items-center space-x-2 text-slate-600 dark:text-slate-350">
-                    <BadgeInfo className="w-4 h-4 text-saffron-550 shrink-0" />
-                    <span><strong>Reason / Purpose (उद्देश्य):</strong> {purpose || 'Cattle Shed Construction'}</span>
+                  <div className="flex justify-between items-center p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-750 text-[10px]">
+                    <div className="flex items-center space-x-2 text-slate-600 dark:text-slate-350">
+                      <BadgeInfo className="w-4 h-4 text-saffron-550 shrink-0" />
+                      <span><strong>{language === 'hi' ? 'उद्देश्य:' : 'Purpose:'}</strong> {purpose || 'Cattle Shed Construction'}</span>
+                    </div>
+                    <div className="font-extrabold text-red-600">
+                      {language === 'hi' ? 'बकाया:' : 'Outstanding:'} ₹{loan.outstandingAmount.toLocaleString()}
+                    </div>
                   </div>
                 </div>
               );
@@ -429,31 +589,71 @@ export const AssetsLoans: React.FC = () => {
 
       </div>
 
+      {/* Loan Repayment Log Table */}
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4 w-full">
+        <h3 className="font-extrabold text-sm text-slate-850 dark:text-white">
+          {language === 'hi' ? 'ऋण भुगतान इतिहास रजिस्टर (Loan Repayment Log)' : 'Loan EMI Repayment History'}
+        </h3>
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+            <thead>
+              <tr className="border-b border-slate-100 dark:border-slate-750 text-slate-400 font-semibold uppercase tracking-wider">
+                <th className="pb-3 pl-2">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
+                <th className="pb-3">{language === 'hi' ? 'ऋण विवरण / टिप्पणी' : 'Loan Particulars / Remarks'}</th>
+                <th className="pb-3">{language === 'hi' ? 'भुगतान मोड' : 'Payment Mode'}</th>
+                <th className="pb-3 text-right">{language === 'hi' ? 'भुगतान राशि (₹)' : 'Total Paid (₹)'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-750 dark:text-slate-350">
+              {repayVouchers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-6 text-center text-slate-400 italic">
+                    {language === 'hi' ? 'कोई ऋण भुगतान प्रविष्टि नहीं पाई गई।' : 'No loan repayment entries recorded yet.'}
+                  </td>
+                </tr>
+              ) : repayVouchers.map(v => {
+                const totalAmt = v.entries.filter(e => e.isDebit).reduce((s, e) => s + e.amount, 0);
+                return (
+                  <tr key={v.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-colors">
+                    <td className="py-3 pl-2 font-bold text-slate-850 dark:text-slate-150">{v.voucherNumber}</td>
+                    <td className="py-3">{v.date}</td>
+                    <td className="py-3 font-semibold text-slate-700 dark:text-slate-300">{v.narration}</td>
+                    <td className="py-3 font-mono font-bold text-indigo-650">{v.paymentMode || 'BANK_UPI'}</td>
+                    <td className="py-3 text-right font-black text-forest-650">₹{totalAmt.toLocaleString()}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Asset Create/Edit Modal */}
       {showAssetModal && (
         <div className="fixed inset-0 bg-slate-950/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-md border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b bg-slate-50 dark:bg-slate-900/60 flex justify-between items-center">
               <h3 className="font-extrabold text-slate-850 dark:text-white text-xs">
-                {editingAsset ? 'Edit अचल संपत्ति details' : 'Register Fixed Asset Addition'}
+                {editingAsset ? (language === 'hi' ? 'अचल संपत्ति विवरण सुधारें' : 'Edit Fixed Asset') : (language === 'hi' ? 'नई अचल संपत्ति जोड़ें' : 'Register Fixed Asset')}
               </h3>
               <button onClick={() => setShowAssetModal(false)} className="text-xs font-bold text-slate-400 hover:text-slate-655"><X className="w-4 h-4" /></button>
             </div>
             
             <form onSubmit={handleAssetSubmit} className="p-6 space-y-4 text-xs font-bold text-slate-500">
               <div className="space-y-1.5">
-                <label>Fixed Asset Name / Description (अचल संपत्ति का नाम)</label>
+                <label>{language === 'hi' ? 'अचल संपत्ति का नाम *' : 'Fixed Asset Name *'}</label>
                 <input
                   type="text"
                   required
                   value={assetForm.name}
                   onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })}
-                  placeholder="e.g. Submersible pump motor"
+                  placeholder="e.g. Submersible pump motor, Tractor"
                   className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-normal"
                 />
               </div>
               <div className="space-y-1.5">
-                <label>Asset Cost Value (लागत मूल्य - ₹)</label>
+                <label>{language === 'hi' ? 'लागत मूल्य (₹) *' : 'Asset Cost Value (₹) *'}</label>
                 <input
                   type="number"
                   required
@@ -464,7 +664,7 @@ export const AssetsLoans: React.FC = () => {
               </div>
 
               <button type="submit" className="w-full py-2.5 bg-forest-600 hover:bg-forest-750 text-white font-bold text-xs rounded-xl mt-4">
-                {editingAsset ? 'Save Changes' : 'Register Asset'}
+                {editingAsset ? (language === 'hi' ? 'सहेजें' : 'Save Changes') : (language === 'hi' ? 'पंजीकृत करें' : 'Register Asset')}
               </button>
             </form>
           </div>
@@ -477,27 +677,27 @@ export const AssetsLoans: React.FC = () => {
           <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-md border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b bg-slate-50 dark:bg-slate-900/60 flex justify-between items-center">
               <h3 className="font-extrabold text-slate-850 dark:text-white text-xs">
-                {editingLoan ? 'Edit ऋण Details' : 'Record Borrowed Loan'}
+                {editingLoan ? (language === 'hi' ? 'ऋण विवरण सुधारें' : 'Edit Loan Borrowing') : (language === 'hi' ? 'नया ऋण दर्ज करें' : 'Record Borrowed Loan')}
               </h3>
               <button onClick={() => setShowLoanModal(false)} className="text-xs font-bold text-slate-400 hover:text-slate-655"><X className="w-4 h-4" /></button>
             </div>
             
             <form onSubmit={handleLoanSubmit} className="p-6 space-y-4 text-xs font-bold text-slate-500">
               <div className="space-y-1.5">
-                <label>Lender Institution / Bank Name (ऋणदाता बैंक)</label>
+                <label>{language === 'hi' ? 'ऋणदाता बैंक / संस्था का नाम *' : 'Lender Institution / Bank Name *'}</label>
                 <input
                   type="text"
                   required
                   value={loanForm.partyName}
                   onChange={(e) => setLoanForm({ ...loanForm, partyName: e.target.value })}
-                  placeholder="e.g. State Bank of India"
+                  placeholder="e.g. Bank of India, State Bank of India"
                   className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-normal"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label>Principal Loan Amount (ऋण मूल्य - ₹)</label>
+                  <label>{language === 'hi' ? 'मूलधन (Principal ₹) *' : 'Principal Loan Amount (₹) *'}</label>
                   <input
                     type="number"
                     required
@@ -507,7 +707,7 @@ export const AssetsLoans: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label>Yearly Interest Rate (%)</label>
+                  <label>{language === 'hi' ? 'वार्षिक ब्याज दर (%) *' : 'Yearly Interest Rate (%) *'}</label>
                   <input
                     type="number"
                     required
@@ -519,19 +719,108 @@ export const AssetsLoans: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label>Purpose of Borrowing (ऋण का कारण - e.g. शेड निर्माण)</label>
+                <label>{language === 'hi' ? 'ऋण का उद्देश्य (Purpose) *' : 'Purpose of Borrowing *'}</label>
                 <input
                   type="text"
                   required
                   value={loanForm.reason}
                   onChange={(e) => setLoanForm({ ...loanForm, reason: e.target.value })}
-                  placeholder="e.g. Borewell motor setup or Cow purchasing"
+                  placeholder="e.g. Cow shed construction or Tractor purchase"
                   className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-normal"
                 />
               </div>
 
               <button type="submit" className="w-full py-2.5 bg-forest-600 hover:bg-forest-750 text-white font-bold text-xs rounded-xl mt-4">
-                {editingLoan ? 'Save Loan Changes' : 'Register Borrowing'}
+                {editingLoan ? (language === 'hi' ? 'सहेजें' : 'Save Changes') : (language === 'hi' ? 'ऋण दर्ज करें' : 'Register Borrowing')}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Loan Repayment EMI Modal */}
+      {showRepayModal && selectedRepayLoan && (
+        <div className="fixed inset-0 bg-slate-950/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-md border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b bg-slate-50 dark:bg-slate-900/60 flex justify-between items-center">
+              <div>
+                <h3 className="font-extrabold text-slate-850 dark:text-white text-xs">
+                  {language === 'hi' ? 'ऋण किश्त भुगतान (Loan EMI Repayment)' : 'Pay Loan EMI / Repayment'}
+                </h3>
+                <p className="text-[10px] text-slate-400">Account: {selectedRepayLoan.partyName} • Bal: ₹{selectedRepayLoan.outstandingAmount.toLocaleString()}</p>
+              </div>
+              <button onClick={() => setShowRepayModal(false)} className="text-xs font-bold text-slate-400 hover:text-slate-655"><X className="w-4 h-4" /></button>
+            </div>
+            
+            <form onSubmit={handleRepaySubmit} className="p-6 space-y-4 text-xs font-bold text-slate-500">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label>{language === 'hi' ? 'मूलधन किश्त (Principal ₹) *' : 'Principal Paid (₹) *'}</label>
+                  <input
+                    type="number"
+                    required
+                    value={repayForm.principalPaid}
+                    onChange={(e) => setRepayForm({ ...repayForm, principalPaid: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-normal"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label>{language === 'hi' ? 'ब्याज राशि (Interest ₹)' : 'Interest Paid (₹)'}</label>
+                  <input
+                    type="number"
+                    value={repayForm.interestPaid}
+                    onChange={(e) => setRepayForm({ ...repayForm, interestPaid: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-normal"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label>{language === 'hi' ? 'भुगतान खाता (Pay From)' : 'Pay From Account'}</label>
+                  <select
+                    value={repayForm.payFromLedger}
+                    onChange={(e) => setRepayForm({ ...repayForm, payFromLedger: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-normal"
+                  >
+                    {bankCashLedgers.map(l => (
+                      <option key={l.id} value={l.id}>{formatBilingual(l.name, language)} [{l.code}]</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label>{language === 'hi' ? 'भुगतान मोड' : 'Payment Mode'}</label>
+                  <select
+                    value={repayForm.paymentMode}
+                    onChange={(e) => setRepayForm({ ...repayForm, paymentMode: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-normal"
+                  >
+                    <option value="BANK_UPI">BANK_UPI</option>
+                    <option value="CASH">CASH</option>
+                    <option value="CHEQUE">CHEQUE</option>
+                    <option value="BANK_TRANSFER">BANK_TRANSFER</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label>{language === 'hi' ? 'दिनांक' : 'Date'}</label>
+                <input
+                  type="date"
+                  required
+                  value={repayForm.date}
+                  onChange={(e) => setRepayForm({ ...repayForm, date: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-normal"
+                />
+              </div>
+
+              <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl flex justify-between items-center text-xs">
+                <span className="text-slate-400 font-bold">{language === 'hi' ? 'कुल भुगतान राशि:' : 'Total Deducted Amount:'}</span>
+                <span className="font-black text-forest-650 text-sm">₹{(Number(repayForm.principalPaid) + Number(repayForm.interestPaid)).toLocaleString()}</span>
+              </div>
+
+              <button type="submit" className="w-full py-2.5 bg-forest-600 hover:bg-forest-750 text-white font-bold text-xs rounded-xl mt-2">
+                {language === 'hi' ? 'किश्त जमा करें (Submit Repayment)' : 'Submit EMI Repayment'}
               </button>
             </form>
           </div>
@@ -541,3 +830,4 @@ export const AssetsLoans: React.FC = () => {
     </div>
   );
 };
+
