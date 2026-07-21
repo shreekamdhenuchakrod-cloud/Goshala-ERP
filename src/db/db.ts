@@ -262,7 +262,13 @@ export class GoshalaDB {
     // Sync Loans table outstanding amounts from accounting ledger postings
     const loans = this.getTable<Loan>('loans');
     loans.forEach(loan => {
-      let matchingLedger = ledgers.find(l => l.id === loan.id || l.id === `l-loan-${loan.id}` || l.name.toLowerCase() === loan.partyName.toLowerCase() || l.name.toLowerCase().includes(loan.partyName.toLowerCase().split(' ')[0]));
+      let matchingLedger = ledgers.find(l => l.id === loan.id || l.id === `l-loan-${loan.id}` || l.name.toLowerCase() === loan.partyName.toLowerCase());
+      if (!matchingLedger) {
+        matchingLedger = ledgers.find(l => (l.name.toLowerCase().includes(loan.partyName.toLowerCase()) || loan.partyName.toLowerCase().includes(l.name.toLowerCase())) && !l.name.toLowerCase().includes('building'));
+      }
+      if (!matchingLedger && loan.partyName.toLowerCase().includes('packing')) {
+        matchingLedger = ledgers.find(l => l.id === 'l-member-packing' || l.name.toLowerCase().includes('packing'));
+      }
       if (matchingLedger) {
         loan.outstandingAmount = Math.max(0, matchingLedger.currentBalance);
       } else {
