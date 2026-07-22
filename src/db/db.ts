@@ -337,78 +337,111 @@ export class GoshalaDB {
     });
   }
 
-  // Recalculates ledger accounts from all POSTED vouchers
-  static recalculateLedgers() {
+  // Calculates exact Year-Wise Ledger Balances for any specified Financial Year (100% Isolated)
+  static getLedgerBalancesForFy(fyId?: string): { [ledgerId: string]: { openingBalance: number; currentBalance: number } } {
+    const targetFyId = fyId || this.getActiveFyId();
+    const fys = this.getTable<FinancialYear>('fys');
     const ledgers = this.getTable<Ledger>('ledgers');
-    const costCenters = this.getTable<CostCenter>('cost_centers');
-    const bankAccounts = this.getTable<BankAccount>('bank_accounts');
-    const vouchers = this.getTable<Voucher>('vouchers');
-    const fys = this.getTable<any>('fys');
-    const config = this.getTable<any>('config')[0];
+    const vouchers = this.getTable<Voucher>('vouchers').filter(v => v.status === 'POSTED');
 
-    const activeFyId = config?.activeFyId || 'fy-2025-26';
-    
-    // Sort FYs by start date to know chronological order
+    // Chronological order of FYs
     const sortedFys = [...fys].sort((a, b) => a.startDate.localeCompare(b.startDate));
-    const activeFyIndex = sortedFys.findIndex(f => f.id === activeFyId);
+    const targetFyIndex = sortedFys.findIndex(f => f.id === targetFyId);
 
-    // Reset balances to absolute opening balance
+    const balances: { [ledgerId: string]: { openingBalance: number; currentBalance: number } } = {};
+
     ledgers.forEach(l => {
-      l.currentBalance = l.openingBalance;
-      l.activeFyOpeningBalance = l.openingBalance;
+      balances[l.id] = { openingBalance: l.openingBalance, currentBalance: l.openingBalance };
     });
 
+    sortedFys.forEach((fy, idx) => {
+      if (targetFyIndex >= 0 && idx > targetFyIndex) return;
+
+      const isTargetFy = idx === targetFyIndex || (targetFyIndex < 0 && fy.id === targetFyId);
+      const isPastFy = idx < targetFyIndex;
+
+      // Match vouchers belonging to this FY strictly by date
+      const fyVouchers = vouchers.filter(v => v.date >= fy.startDate && v.date <= fy.endDate);
+
+      fyVouchers.forEach(v => {
+        v.entries.forEach(entry => {
+          if (!balances[entry.ledgerId]) {
+            const l = ledgers.find(item => item.id === entry.ledgerId);
+            if (!l) return;
+            balances[entry.ledgerId] = { openingBalance: l.openingBalance, currentBalance: l.openingBalance };
+          }
+          const l = ledgers.find(item => item.id === entry.ledgerId);
+          if (!l) return;
+
+          const isDebit = entry.isDebit;
+          const amount = entry.amount;
+
+          if (isPastFy) {
+            // Carry forward ONLY Assets, Liabilities, and Capital accounts
+            if (l.type === 'ASSET' || l.type === 'LIABILITY' || l.type === 'CAPITAL') {
+              if (l.type === 'ASSET') {
+                balances[l.id].currentBalance += isDebit ? amount : -amount;
+              } else {
+                balances[l.id].currentBalance += isDebit ? -amount : amount;
+              }
+            }
+          } else if (isTargetFy) {
+            if (l.type === 'ASSET' || l.type === 'EXPENSE') {
+              balances[l.id].currentBalance += isDebit ? amount : -amount;
+            } else {
+              balances[l.id].currentBalance += isDebit ? -amount : amount;
+            }
+          }
+        });
+      });
+
+      // At boundary of past FY, transfer currentBalance to openingBalance for the target year
+      if (isPastFy) {
+        ledgers.forEach(l => {
+          if (l.type === 'ASSET' || l.type === 'LIABILITY' || l.type === 'CAPITAL') {
+            balances[l.id].openingBalance = balances[l.id].currentBalance;
+          } else {
+            balances[l.id].openingBalance = 0;
+            balances[l.id].currentBalance = 0;
+          }
+        });
+      }
+    });
+
+    return balances;
+  }
+
+  // Recalculates ledger accounts from all POSTED vouchers for active FY
+  static recalculateLedgers() {
+    const activeFyId = this.getActiveFyId();
+    const fyBalances = this.getLedgerBalancesForFy(activeFyId);
+    const ledgers = this.getTable<Ledger>('ledgers');
+    const bankAccounts = this.getTable<BankAccount>('bank_accounts');
+    const costCenters = this.getTable<CostCenter>('cost_centers');
+    const vouchers = this.getTable<Voucher>('vouchers');
+    const activeFyObj = this.getActiveFy();
+
+    // Apply calculated FY balances to ledgers
+    ledgers.forEach(l => {
+      if (fyBalances[l.id]) {
+        l.openingBalance = fyBalances[l.id].openingBalance;
+        l.activeFyOpeningBalance = fyBalances[l.id].openingBalance;
+        l.currentBalance = fyBalances[l.id].currentBalance;
+      }
+    });
+
+    // Update Cost Centers (only for active FY date range)
     costCenters.forEach(cc => {
       cc.spentAmount = 0;
     });
-
-    // Populate balances from posted vouchers
     vouchers.forEach(v => {
-      if (v.status !== 'POSTED') return;
-
-      const voucherFyIndex = sortedFys.findIndex(f => f.id === (v.fyId || 'fy-2025-26'));
-      
-      // If voucher belongs to a future FY, ignore it completely for current FY balance calculation
-      if (voucherFyIndex > activeFyIndex) return;
-
-      const isCurrentFy = voucherFyIndex === activeFyIndex;
-      const isPreviousFy = voucherFyIndex < activeFyIndex;
-
-      // Update Cost Centers (only for current FY)
-      if (isCurrentFy && v.costCenterId) {
+      if (v.status === 'POSTED' && v.costCenterId && v.date >= activeFyObj.startDate && v.date <= activeFyObj.endDate) {
         const cc = costCenters.find(c => c.id === v.costCenterId);
         if (cc) {
-          // Add debit amounts if it is an expense voucher
-          const debitsSum = v.entries
-            .filter(e => e.isDebit)
-            .reduce((acc, curr) => acc + curr.amount, 0);
+          const debitsSum = v.entries.filter(e => e.isDebit).reduce((acc, curr) => acc + curr.amount, 0);
           cc.spentAmount += debitsSum;
         }
       }
-
-      // Update Ledger balances
-      v.entries.forEach(entry => {
-        const ledger = ledgers.find(l => l.id === entry.ledgerId);
-        if (!ledger) return;
-
-        // CRITICAL ACCOUNTING RULE:
-        // Incomes and Expenses DO NOT carry forward to the next year.
-        // We only carry forward Assets, Liabilities, and Capital (Real Accounts).
-        if (isPreviousFy && (ledger.type === 'INCOME' || ledger.type === 'EXPENSE')) {
-          return;
-        }
-
-        const isDebit = entry.isDebit;
-        const amount = entry.amount;
-
-        if (ledger.type === 'ASSET' || ledger.type === 'EXPENSE') {
-          ledger.currentBalance += isDebit ? amount : -amount;
-          if (isPreviousFy) ledger.activeFyOpeningBalance! += isDebit ? amount : -amount;
-        } else {
-          ledger.currentBalance += isDebit ? -amount : amount;
-          if (isPreviousFy) ledger.activeFyOpeningBalance! += isDebit ? -amount : amount;
-        }
-      });
     });
 
     // Sync bank balances

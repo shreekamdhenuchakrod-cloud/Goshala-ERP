@@ -13,9 +13,19 @@ export const CashWithdrawals: React.FC = () => {
 
   useEffect(() => {
     loadData();
+
+    const handleFyChanged = () => {
+      loadData();
+    };
+
+    window.addEventListener('goshala_fy_changed', handleFyChanged);
+    return () => {
+      window.removeEventListener('goshala_fy_changed', handleFyChanged);
+    };
   }, []);
 
   const loadData = () => {
+    GoshalaDB.recalculateLedgers();
     const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
     
     // Set cash in hand balance

@@ -19,28 +19,41 @@ export const AccountingReports: React.FC = () => {
 
   // Search & Filters inside reports
   const [targetLedgerId, setTargetLedgerId] = useState<string>('l-cash');
+  const [fyBalances, setFyBalances] = useState<{ [ledgerId: string]: { openingBalance: number; currentBalance: number } }>({});
+  const [activeFyObj, setActiveFyObj] = useState<any>(null);
 
-  useEffect(() => {
-    const conf = GoshalaDB.getTable<any>('config')[0];
-    const activeFyId = conf?.activeFyId || 'fy-2025-26';
-    const fys = GoshalaDB.getTable<any>('fys');
-    const activeFyObj = fys.find(f => f.id === activeFyId);
-    
-    const isMatchFy = (v: Voucher) => {
-      if (v.status !== 'POSTED') return false;
-      if (v.fyId && v.fyId === activeFyId) return true;
-      if (activeFyObj && v.date >= activeFyObj.startDate && v.date <= activeFyObj.endDate) return true;
-      if (!v.fyId && activeFyId === 'fy-2025-26' && (v.date <= '2026-03-31' || !v.date)) return true;
-      return false;
-    };
+  const loadData = () => {
+    const activeFy = GoshalaDB.getActiveFy();
+    setActiveFyObj(activeFy);
 
-    setVouchers(GoshalaDB.getTable<Voucher>('vouchers').filter(isMatchFy));
+    const postedVouchers = GoshalaDB.getTable<Voucher>('vouchers').filter(v => 
+      v.status === 'POSTED' && v.date >= activeFy.startDate && v.date <= activeFy.endDate
+    );
+
+    const balances = GoshalaDB.getLedgerBalancesForFy(activeFy.id);
+    setFyBalances(balances);
+
+    setVouchers(postedVouchers);
     setLedgers(GoshalaDB.getTable<Ledger>('ledgers'));
     setDonations(GoshalaDB.getTable<Donation>('donations'));
     setGrants(GoshalaDB.getTable<GovtGrant>('grants'));
     setCows(GoshalaDB.getTable<Cow>('cows'));
-    
+
+    const conf = GoshalaDB.getTable<any>('config')[0];
     if (conf) setConfig(conf);
+  };
+
+  useEffect(() => {
+    loadData();
+
+    const handleFyChanged = () => {
+      loadData();
+    };
+
+    window.addEventListener('goshala_fy_changed', handleFyChanged);
+    return () => {
+      window.removeEventListener('goshala_fy_changed', handleFyChanged);
+    };
   }, []);
 
   const getLedgerName = (id: string) => {
@@ -52,19 +65,21 @@ export const AccountingReports: React.FC = () => {
   const calculateTrialBalance = () => {
     const rows = ledgers.map(l => {
       const isDebitType = l.type === 'ASSET' || l.type === 'EXPENSE';
+      const bal = fyBalances[l.id]?.currentBalance ?? l.currentBalance;
       let debitVal = 0;
       let creditVal = 0;
 
       if (isDebitType) {
-        if (l.currentBalance >= 0) debitVal = l.currentBalance;
-        else creditVal = Math.abs(l.currentBalance);
+        if (bal >= 0) debitVal = bal;
+        else creditVal = Math.abs(bal);
       } else {
-        if (l.currentBalance >= 0) creditVal = l.currentBalance;
-        else debitVal = Math.abs(l.currentBalance);
+        if (bal >= 0) creditVal = bal;
+        else debitVal = Math.abs(bal);
       }
 
       return {
         ...l,
+        currentBalance: bal,
         debit: debitVal,
         credit: creditVal
       };
@@ -82,7 +97,7 @@ export const AccountingReports: React.FC = () => {
   };
 
   const getLedgerStatement = (ledgerId: string) => {
-    let runningBalance = ledgers.find(l => l.id === ledgerId)?.activeFyOpeningBalance || 0;
+    let runningBalance = fyBalances[ledgerId]?.openingBalance ?? (ledgers.find(l => l.id === ledgerId)?.activeFyOpeningBalance || 0);
     const ledger = ledgers.find(l => l.id === ledgerId);
     const isDebitType = ledger ? (ledger.type === 'ASSET' || ledger.type === 'EXPENSE') : true;
 

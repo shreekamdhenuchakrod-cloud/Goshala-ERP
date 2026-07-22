@@ -48,8 +48,19 @@ export const AssetsLoans: React.FC = () => {
     notes: 'Loan EMI repayment'
   });
 
+  const [showCreditorsModal, setShowCreditorsModal] = useState(false);
+
   useEffect(() => {
     loadData();
+
+    const handleFyChanged = () => {
+      loadData();
+    };
+
+    window.addEventListener('goshala_fy_changed', handleFyChanged);
+    return () => {
+      window.removeEventListener('goshala_fy_changed', handleFyChanged);
+    };
   }, []);
 
   const loadData = () => {
@@ -63,7 +74,7 @@ export const AssetsLoans: React.FC = () => {
     const loanRepays = allVouchers.filter(v => v.voucherType === 'LOAN_REPAYMENT' || v.narration.toLowerCase().includes('loan repayment') || v.narration.toLowerCase().includes('ऋण'));
     setRepayVouchers(loanRepays.reverse());
 
-    // Calculate Sundry Creditors (Vendor Liabilities)
+    // Calculate Sundry Creditors (Vendor Liabilities) - STRICTLY ONLY BALANCE > 0
     const contacts = GoshalaDB.getTable<any>('contacts');
     const postedVouchers = allVouchers.filter(v => v.status === 'POSTED');
     const generalCreditorLedger = ledgers.find(l => l.id === 'l-liab-creditors');
@@ -85,7 +96,7 @@ export const AssetsLoans: React.FC = () => {
         balance: netBalance,
         billsCount: pVouchers.length
       };
-    }).filter((p: any) => p.balance !== 0 || p.billsCount > 0);
+    }).filter((p: any) => p.balance > 0);
 
     setSundryCreditors(creditorList);
     const totalCreditorBal = generalCreditorLedger ? generalCreditorLedger.currentBalance : creditorList.reduce((sum: number, p: any) => sum + Math.max(0, p.balance), 0);
@@ -444,129 +455,107 @@ export const AssetsLoans: React.FC = () => {
 
       {/* Vitals Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2">
+        <div 
+          onClick={() => document.getElementById('fixed-assets-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2 cursor-pointer hover:border-forest-400 hover:shadow-md transition"
+        >
           <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">
             {language === 'hi' ? 'कुल अचल संपत्ति (Fixed Assets)' : 'Total Fixed Assets'}
           </span>
           <p className="text-2xl font-black text-forest-650">₹{totalAssetsVal.toLocaleString()}</p>
           <span className="text-[9px] text-forest-600 font-bold bg-forest-50 dark:bg-forest-950/20 px-2 py-0.5 rounded-full inline-block">
-            {fixedAssets.length} {language === 'hi' ? 'पंजीकृत संपत्तियां' : 'Registered Assets'}
+            {fixedAssets.length} {language === 'hi' ? 'पंजीकृत संपत्तियां' : 'Registered Assets'} ➔
           </span>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2">
+        <div 
+          onClick={() => document.getElementById('loans-register-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2 cursor-pointer hover:border-slate-400 hover:shadow-md transition"
+        >
           <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">
             {language === 'hi' ? 'कुल स्वीकृत ऋण (Total Borrowed)' : 'Total Principal Borrowed'}
           </span>
           <p className="text-2xl font-black text-slate-800 dark:text-white">₹{totalPrincipalBorrowed.toLocaleString()}</p>
           <span className="text-[9px] text-slate-500 font-bold bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full inline-block">
-            {loans.length} {language === 'hi' ? 'सक्रिय ऋण खाते' : 'Active Loan Accounts'}
+            {loans.length} {language === 'hi' ? 'सक्रिय ऋण खाते' : 'Active Loan Accounts'} ➔
           </span>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2">
+        <div 
+          onClick={() => document.getElementById('loans-register-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2 cursor-pointer hover:border-red-400 hover:shadow-md transition"
+        >
           <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">
             {language === 'hi' ? 'बकाया ऋण मूलधन (Outstanding)' : 'Outstanding Principal'}
           </span>
           <p className="text-2xl font-black text-red-550">₹{totalOutstandingLoan.toLocaleString()}</p>
           <span className="text-[9px] text-red-600 font-bold bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded-full inline-block">
-            {language === 'hi' ? 'सक्रिय देनदारी' : 'Remaining Liability'}
+            {language === 'hi' ? 'सक्रिय देनदारी' : 'Remaining Liability'} ➔
           </span>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2">
+        <div 
+          onClick={() => document.getElementById('repay-vouchers-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2 cursor-pointer hover:border-emerald-400 hover:shadow-md transition"
+        >
           <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">
             {language === 'hi' ? 'चुकाया गया मूलधन (Principal Repaid)' : 'Principal Repaid'}
           </span>
           <p className="text-2xl font-black text-emerald-600">₹{totalPaidOff.toLocaleString()}</p>
           <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full inline-block">
-            {language === 'hi' ? 'सफलतापूर्वक चुकता' : 'Successfully Paid Off'}
+            {language === 'hi' ? 'सफलतापूर्वक चुकता' : 'Successfully Paid Off'} ➔
           </span>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-amber-200/60 dark:border-amber-700/50 shadow-sm space-y-2 bg-gradient-to-br from-amber-50/30 to-transparent">
+        <div 
+          onClick={() => setShowCreditorsModal(true)}
+          className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-amber-200/60 dark:border-amber-700/50 shadow-sm space-y-2 bg-gradient-to-br from-amber-50/30 to-transparent cursor-pointer hover:border-amber-400 hover:shadow-md transition"
+        >
           <span className="text-[10px] text-amber-700 dark:text-amber-400 font-extrabold uppercase tracking-wider block">
             {language === 'hi' ? 'कुल लेनदार उधारी (Creditors)' : 'Outstanding Creditors'}
           </span>
           <p className="text-2xl font-black text-amber-600 dark:text-amber-400">₹{totalCreditorLiability.toLocaleString()}</p>
           <span className="text-[9px] text-amber-800 dark:text-amber-300 font-bold bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded-full inline-block">
+            {sundryCreditors.length} {language === 'hi' ? 'बकाया वेंडर्स' : 'Pending Vendors'} ➔
           </span>
         </div>
       </div>
 
-      {/* 🛒 OUTSTANDING CREDITORS FOR PURCHASE (लेनदार उधारी बकाया) */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-amber-200/70 dark:border-amber-700/50 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      {/* 🛒 OUTSTANDING CREDITORS FOR PURCHASE SUMMARY CARD (CLICKABLE FOR DETAILS) */}
+      <div 
+        onClick={() => setShowCreditorsModal(true)}
+        className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent bg-white dark:bg-slate-800 p-6 rounded-3xl border border-amber-200/80 dark:border-amber-700/60 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer hover:border-amber-400 hover:shadow-md transition group"
+      >
+        <div className="flex items-center space-x-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 font-black flex items-center justify-center text-xl group-hover:scale-110 transition">
+            🛒
+          </div>
           <div>
-            <div className="flex items-center space-x-2">
-              <span className="p-2 bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded-xl font-black">🛒</span>
-              <h3 className="text-base font-extrabold text-slate-850 dark:text-white">
-                {language === 'hi' ? 'Outstanding Creditor for Purchase (लेनदार बकाया उधारी)' : 'Outstanding Creditors for Purchase'}
-              </h3>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <h3 className="text-base font-extrabold text-slate-850 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition">
+              {language === 'hi' ? 'Outstanding Creditor for Purchase (लेनदार बकाया उधारी)' : 'Outstanding Creditors for Purchase'}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {language === 'hi'
-                ? 'सामग्री, चारा, भूसा व निर्माण सामान का उधारी बकाया जो सप्लायरों को देना बाकी है'
-                : 'Track pending vendor bills and credit purchase liabilities in real-time'}
+                ? 'क्लिक करके सभी उधारी बकाया सप्लायरों/वेंडर्स की सूची देखें (> ₹0)'
+                : 'Click to view detailed list of all pending vendor bills (> ₹0)'}
             </p>
           </div>
-          <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700/50 rounded-2xl text-right">
-            <p className="text-[10px] text-amber-700 dark:text-amber-300 font-bold uppercase tracking-wider">कुल लेनदार उधारी बकाया (Total Creditor Payable)</p>
-            <p className="text-xl font-black text-amber-600 dark:text-amber-400">₹{totalCreditorLiability.toLocaleString()}</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className="text-right">
+            <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider block">कुल लेनदार उधारी बकाया</span>
+            <span className="text-2xl font-black text-amber-600 dark:text-amber-400">₹{totalCreditorLiability.toLocaleString()}</span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-black flex items-center justify-center text-sm group-hover:translate-x-1 transition">
+            ➔
           </div>
         </div>
-
-        {sundryCreditors.length === 0 ? (
-          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-2xl text-emerald-800 dark:text-emerald-300 text-xs font-bold text-center">
-            ✅ कोई उधारी बकाया नहीं है! सभी वेंडर्स का भुगतान पूर्ण है।
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-semibold uppercase text-[10px]">
-                  <th className="pb-3">Party / Vendor Name (विक्रेता का नाम)</th>
-                  <th className="pb-3">Contact Number (मोबाइल)</th>
-                  <th className="pb-3">Bills Count (कुल लेनदेन)</th>
-                  <th className="pb-3">Outstanding Amount (बाकी उधारी राशि)</th>
-                  <th className="pb-3 text-right">Status (स्थिति)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
-                {sundryCreditors.map((creditor, idx) => (
-                  <tr key={creditor.id || idx} className="hover:bg-amber-50/30 dark:hover:bg-slate-900/40">
-                    <td className="py-3 font-extrabold text-slate-850 dark:text-white flex items-center space-x-2">
-                      <span className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 font-black flex items-center justify-center text-xs">
-                        {creditor.name.charAt(0).toUpperCase()}
-                      </span>
-                      <span>{creditor.name}</span>
-                    </td>
-                    <td className="py-3 font-mono">{creditor.phone || '—'}</td>
-                    <td className="py-3 font-bold">{creditor.billsCount} रिकॉर्ड्स</td>
-                    <td className="py-3 font-black text-amber-600 dark:text-amber-400 text-sm">
-                      ₹{creditor.balance.toLocaleString()}
-                    </td>
-                    <td className="py-3 text-right">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black ${
-                        creditor.balance > 0
-                          ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300/40'
-                          : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300/40'
-                      }`}>
-                        {creditor.balance > 0 ? '⚠️ देना बाकी (Payable)' : '✅ चुकता (Settled)'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Fixed Assets Registry */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
+        <div id="fixed-assets-section" className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
           <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-700/60">
             <h3 className="font-extrabold text-sm text-slate-850 dark:text-white">
               {language === 'hi' ? 'अचल संपत्ति रजिस्टर (Fixed Assets)' : 'Fixed Assets Register'}
@@ -617,7 +606,7 @@ export const AssetsLoans: React.FC = () => {
         </div>
 
         {/* Outstanding Loans Registry */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
+        <div id="loans-register-section" className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
           <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-700/60">
             <h3 className="font-extrabold text-sm text-slate-850 dark:text-white">
               {language === 'hi' ? 'बकाया ऋण खाते (Outstanding Loans)' : 'Outstanding Loan Accounts'}
@@ -698,7 +687,7 @@ export const AssetsLoans: React.FC = () => {
       </div>
 
       {/* Loan Repayment Log Table */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4 w-full">
+      <div id="repay-vouchers-section" className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4 w-full">
         <h3 className="font-extrabold text-sm text-slate-850 dark:text-white">
           {language === 'hi' ? 'ऋण भुगतान इतिहास रजिस्टर (Loan Repayment Log)' : 'Loan EMI Repayment History'}
         </h3>
@@ -931,6 +920,69 @@ export const AssetsLoans: React.FC = () => {
                 {language === 'hi' ? 'किश्त जमा करें (Submit Repayment)' : 'Submit EMI Repayment'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🛒 OUTSTANDING CREDITORS DETAILS MODAL (ONLY BALANCE > 0) */}
+      {showCreditorsModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCreditorsModal(false)}>
+          <div className="bg-white dark:bg-slate-850 rounded-3xl border border-slate-200 dark:border-slate-700 max-w-3xl w-full p-6 space-y-5 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center space-x-2.5">
+                <span className="p-2 bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded-xl font-black text-lg">🛒</span>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-850 dark:text-white">
+                    {language === 'hi' ? 'Outstanding Creditor for Purchase (लेनदार उधारी विवरण)' : 'Outstanding Creditors Details'}
+                  </h3>
+                  <p className="text-xs text-slate-400">केवल बकाया उधारी (देना बाकी) वाले सप्लायरों की सूची</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCreditorsModal(false)} className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl text-slate-500">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700/50 rounded-2xl flex justify-between items-center text-amber-900 dark:text-amber-200">
+              <span className="text-xs font-bold">कुल बकाया लेनदार (Total Creditors Payable)</span>
+              <span className="text-xl font-black text-amber-600 dark:text-amber-400">₹{totalCreditorLiability.toLocaleString()}</span>
+            </div>
+
+            {sundryCreditors.length === 0 ? (
+              <div className="p-8 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-2xl text-emerald-800 dark:text-emerald-300 text-xs font-bold text-center">
+                ✅ कोई उधारी बकाया नहीं है! सभी वेंडर्स का भुगतान पूर्ण है।
+              </div>
+            ) : (
+              <div className="max-h-96 overflow-y-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900 z-10">
+                    <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-semibold uppercase text-[10px]">
+                      <th className="py-2.5 px-3">Party / Vendor Name (विक्रेता का नाम)</th>
+                      <th className="py-2.5 px-3">Mobile (मोबाइल)</th>
+                      <th className="py-2.5 px-3">Records (लेनदेन)</th>
+                      <th className="py-2.5 px-3 text-right">Outstanding (बाकी उधारी राशि)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                    {sundryCreditors.map((creditor, idx) => (
+                      <tr key={creditor.id || idx} className="hover:bg-amber-50/30 dark:hover:bg-slate-900/40">
+                        <td className="py-3 px-3 font-extrabold text-slate-850 dark:text-white flex items-center space-x-2">
+                          <span className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 font-black flex items-center justify-center text-xs">
+                            {creditor.name.charAt(0).toUpperCase()}
+                          </span>
+                          <span>{creditor.name}</span>
+                        </td>
+                        <td className="py-3 px-3 font-mono">{creditor.phone || '—'}</td>
+                        <td className="py-3 px-3 font-bold">{creditor.billsCount} रिकॉर्ड्स</td>
+                        <td className="py-3 px-3 font-black text-amber-600 dark:text-amber-400 text-sm text-right">
+                          ₹{creditor.balance.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
