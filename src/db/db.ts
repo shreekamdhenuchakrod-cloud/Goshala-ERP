@@ -40,7 +40,7 @@ import {
   SEED_LOANS
 } from './seed';
 import { db } from './firebase';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
 
 // Storage Helper
 const getStorageItem = <T>(key: string, defaultValue: T): T => {
@@ -148,17 +148,39 @@ export class GoshalaDB {
   // Full wipe: clears ALL transaction data and re-seeds from baseline
   static hardResetToBaseline() {
     const savedConfig = localStorage.getItem('goshala_erp_config');
-    const savedPin = localStorage.getItem('goshala_erp_app_pin');
 
-    // Remove ALL ERP keys except config and pin
+    // Remove ALL ERP keys except config
     Object.keys(localStorage)
-      .filter(k => k.startsWith('goshala_erp_') && k !== 'goshala_erp_config' && k !== 'goshala_erp_app_pin')
+      .filter(k => k.startsWith('goshala_erp_') && k !== 'goshala_erp_config')
       .forEach(k => localStorage.removeItem(k));
 
     if (savedConfig) localStorage.setItem('goshala_erp_config', savedConfig);
-    if (savedPin) localStorage.setItem('goshala_erp_app_pin', savedPin);
 
-    // Force re-seed
+    // CRITICAL FIX: Wipe the PIN from Firebase to solve the "default PIN" issue
+    try {
+      const pinRef = doc(db, 'goshala_erp', 'security_pin');
+      deleteDoc(pinRef).catch(() => {});
+    } catch (e) {
+      console.warn('Could not delete Firebase PIN:', e);
+    }
+
+    // CRITICAL FIX: We MUST overwrite Firebase with the clean baseline seeds, 
+    // otherwise the cloud sync will immediately pull the corrupted QA data back down!
+    this.saveTable('vouchers', SEED_VOUCHERS);
+    this.saveTable('cows', SEED_COWS);
+    this.saveTable('ledgers', SEED_LEDGERS.map(l => ({
+      ...l,
+      openingBalance: l.openingBalance || 0,
+      currentBalance: l.currentBalance || 0
+    })));
+    this.saveTable('bank_accounts', SEED_BANK_ACCOUNTS.map(ba => ({
+      ...ba,
+      currentBalance: ba.currentBalance || 0
+    })));
+    this.saveTable('loans', SEED_LOANS);
+    this.saveTable('cost_centers', SEED_COST_CENTERS);
+    
+    // Force re-seed local
     this.init();
   }
 

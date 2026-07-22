@@ -588,9 +588,9 @@ export const Settings: React.FC = () => {
 
   // Reset & Clear data triggers
   const handleResetDatabase = () => {
-    if (!window.confirm('⚠️ WARNING: This will DELETE all your manually entered vouchers, test entries, and reset to baseline historical CA data. Your organisation profile and PIN will be preserved.\n\nProceed?')) return;
+    if (!window.confirm('⚠️ WARNING: This will DELETE all your manually entered vouchers, test entries, and reset to baseline historical CA data. Your Security PIN will also be WIPED to fix the default PIN issue (you will be asked to create a new one on reload).\n\nProceed?')) return;
     GoshalaDB.hardResetToBaseline();
-    alert('✅ Database reset to baseline CA data! All test/QA entries removed. Reloading...');
+    alert('✅ Database reset to baseline CA data! All test/QA entries and Security PIN have been removed. Reloading...');
     window.location.reload();
   };
 
@@ -2264,8 +2264,8 @@ export const Settings: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  const currentPin = localStorage.getItem('goshala_erp_app_pin') || '1234';
-                  if (pinInput === currentPin) {
+                  const currentPin = localStorage.getItem('goshala_erp_app_pin') || '';
+                  if (currentPin && pinInput === currentPin) {
                     const actionToExec = pinPromptAction;
                     setPinPromptAction(null);
                     actionToExec();
