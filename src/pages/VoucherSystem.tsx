@@ -60,6 +60,7 @@ export const VoucherSystem: React.FC = () => {
   const [billNumber, setBillNumber] = useState('');
   const [billDate, setBillDate] = useState('');
   const [billFile, setBillFile] = useState(''); // Stores Base64 compressed image
+  const [selectedVoucherIds, setSelectedVoucherIds] = useState<string[]>([]);
 
   // Dynamic Contact quick creation
   const [showQuickContact, setShowQuickContact] = useState(false);
@@ -485,6 +486,22 @@ export const VoucherSystem: React.FC = () => {
 
       setBillFile(v.attachments && v.attachments.length > 0 ? v.attachments[0] : '');
     });
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedVoucherIds.length === 0) return;
+    if (!window.confirm(language === 'hi' ? 'क्या आप वाकई इन सभी चयनित वाउचर को हटाना चाहते हैं?' : 'Are you sure you want to delete all selected vouchers?')) return;
+    
+    let currentVouchers = [...vouchers];
+    selectedVoucherIds.forEach(id => {
+      currentVouchers = currentVouchers.filter(v => v.id !== id);
+    });
+    GoshalaDB.saveTable('vouchers', currentVouchers);
+    GoshalaDB.recalculateLedgers();
+    
+    setVouchers(currentVouchers);
+    setSelectedVoucherIds([]);
+    alert(language === 'hi' ? 'चयनित वाउचर हटा दिए गए।' : 'Selected vouchers deleted.');
   };
 
   const handleDeleteVoucher = (id: string) => {
@@ -1200,12 +1217,39 @@ export const VoucherSystem: React.FC = () => {
 
           </div>
 
+          {/* Bulk Actions */}
+          {selectedVoucherIds.length > 0 && (
+            <div className="flex justify-start mb-3">
+              <button
+                onClick={() => requirePin(handleBulkDelete)}
+                className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/20 dark:hover:bg-red-950/40 font-bold rounded-xl text-xs flex items-center space-x-2 transition"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{language === 'hi' ? `चयनित हटाएं (${selectedVoucherIds.length})` : `Delete Selected (${selectedVoucherIds.length})`}</span>
+              </button>
+            </div>
+          )}
+
           {/* Vouchers Table */}
           <div className="overflow-x-auto w-full">
             <table className="w-full text-left text-xs border-collapse min-w-[750px]">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-750 text-slate-400 font-bold uppercase tracking-wider">
-                  <th className="pb-3 pl-3">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                  <th className="pb-3 pl-3 w-8">
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300 dark:border-slate-600 cursor-pointer w-3.5 h-3.5 accent-forest-600"
+                      checked={filteredVouchers.length > 0 && selectedVoucherIds.length === filteredVouchers.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedVoucherIds(filteredVouchers.map(v => v.id));
+                        } else {
+                          setSelectedVoucherIds([]);
+                        }
+                      }}
+                    />
+                  </th>
+                  <th className="pb-3">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
                   <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
                   <th className="pb-3">{language === 'hi' ? 'प्रकार' : 'Type'}</th>
                   <th className="pb-3">{language === 'hi' ? 'खर्च केंद्र' : 'Cost Center'}</th>
@@ -1218,7 +1262,7 @@ export const VoucherSystem: React.FC = () => {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">
                 {filteredVouchers.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-6 text-center text-slate-400 italic">No vouchers found matching selected query criteria.</td>
+                    <td colSpan={10} className="py-6 text-center text-slate-400 italic">No vouchers found matching selected query criteria.</td>
                   </tr>
                 ) : filteredVouchers.map(v => {
                   const debEntry = v.entries.find(e => e.isDebit);
@@ -1245,7 +1289,21 @@ export const VoucherSystem: React.FC = () => {
 
                   return (
                     <tr key={v.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                      <td className="py-4 pl-3 font-bold text-slate-850 dark:text-slate-200">{v.voucherNumber}</td>
+                      <td className="py-4 pl-3">
+                        <input
+                          type="checkbox"
+                          className="rounded border-slate-300 dark:border-slate-600 cursor-pointer w-3.5 h-3.5 accent-forest-600"
+                          checked={selectedVoucherIds.includes(v.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedVoucherIds(prev => [...prev, v.id]);
+                            } else {
+                              setSelectedVoucherIds(prev => prev.filter(id => id !== v.id));
+                            }
+                          }}
+                        />
+                      </td>
+                      <td className="py-4 font-bold text-slate-850 dark:text-slate-200">{v.voucherNumber}</td>
                       <td className="py-4">{v.date}</td>
                       <td className="py-4">
                         <span className={`px-2.5 py-0.5 rounded text-[9px] font-extrabold tracking-wider ${
