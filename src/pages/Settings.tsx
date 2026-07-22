@@ -2069,7 +2069,7 @@ export const Settings: React.FC = () => {
                           <th className="pb-3">Party Name (पक्षकार)</th>
                           <th className="pb-3">Type (प्रकार)</th>
                           <th className="pb-3">Mobile (मोबाइल)</th>
-                          <th className="pb-3">PAN</th>
+                          <th className="pb-3">Outstanding Payable (देना बाकी)</th>
                           <th className="pb-3">Address (पता)</th>
                           <th className="pb-3 text-right">Actions</th>
                         </tr>
@@ -2077,38 +2077,60 @@ export const Settings: React.FC = () => {
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
                         {parties
                           .filter(p => p.name.toLowerCase().includes(partySearch.toLowerCase()) || (p.phone && p.phone.includes(partySearch)))
-                          .map(p => (
-                            <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
-                              <td className="py-3 font-bold text-slate-850 dark:text-white flex items-center space-x-2">
-                                <span className="w-6 h-6 rounded-full bg-forest-50 dark:bg-forest-900/40 text-forest-700 dark:text-forest-400 font-bold flex items-center justify-center text-[10px]">
-                                  {p.name.charAt(0).toUpperCase()}
-                                </span>
-                                <span>{p.name}</span>
-                              </td>
-                              <td className="py-3">
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                  p.type === 'DONOR' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' :
-                                  p.type === 'VENDOR' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' :
-                                  'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300'
-                                }`}>
-                                  {p.type}
-                                </span>
-                              </td>
-                              <td className="py-3 font-mono">{p.phone || '—'}</td>
-                              <td className="py-3 font-mono uppercase">{p.pan || '—'}</td>
-                              <td className="py-3 max-w-[150px] truncate" title={p.address}>{p.address || '—'}</td>
-                              <td className="py-3 text-right space-x-1.5">
-                                <button
-                                  onClick={() => handleEditParty(p)}
-                                  className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-bold text-[10px]"
-                                >Edit</button>
-                                <button
-                                  onClick={() => handleDeleteParty(p.id)}
-                                  className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded font-bold text-[10px]"
-                                >Delete</button>
-                              </td>
-                            </tr>
-                          ))}
+                          .map(p => {
+                            const vouchers = GoshalaDB.getTable<any>('vouchers').filter(v => v.status === 'POSTED');
+                            const partyVouchers = vouchers.filter(v => v.narration?.toLowerCase().includes(p.name.toLowerCase()));
+                            const creditBillsSum = partyVouchers.filter(v => v.entries.some((e: any) => e.ledgerId === 'l-liab-creditors' && !e.isDebit)).reduce((s: number, v: any) => s + (v.entries.find((e: any) => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
+                            const paymentsSum = partyVouchers.filter(v => v.entries.some((e: any) => e.ledgerId === 'l-liab-creditors' && e.isDebit)).reduce((s: number, v: any) => s + (v.entries.find((e: any) => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
+                            const netOutstanding = (p.outstandingBalance || 0) + creditBillsSum - paymentsSum;
+
+                            return (
+                              <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
+                                <td className="py-3 font-bold text-slate-850 dark:text-white flex items-center space-x-2">
+                                  <span className="w-6 h-6 rounded-full bg-forest-50 dark:bg-forest-900/40 text-forest-700 dark:text-forest-400 font-bold flex items-center justify-center text-[10px]">
+                                    {p.name.charAt(0).toUpperCase()}
+                                  </span>
+                                  <span>{p.name}</span>
+                                </td>
+                                <td className="py-3">
+                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                    p.type === 'DONOR' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' :
+                                    p.type === 'VENDOR' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' :
+                                    'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300'
+                                  }`}>
+                                    {p.type}
+                                  </span>
+                                </td>
+                                <td className="py-3 font-mono">{p.phone || '—'}</td>
+                                <td className="py-3">
+                                  {netOutstanding > 0 ? (
+                                    <span className="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-extrabold text-xs">
+                                      ₹{netOutstanding.toLocaleString()} (देना बाकी)
+                                    </span>
+                                  ) : netOutstanding < 0 ? (
+                                    <span className="px-2.5 py-1 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-extrabold text-xs">
+                                      ₹{Math.abs(netOutstanding).toLocaleString()} (अग्रिम)
+                                    </span>
+                                  ) : (
+                                    <span className="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold text-xs">
+                                      ₹0 (कोई बकाया नहीं)
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 max-w-[150px] truncate" title={p.address}>{p.address || '—'}</td>
+                                <td className="py-3 text-right space-x-1.5">
+                                  <button
+                                    onClick={() => handleEditParty(p)}
+                                    className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-bold text-[10px]"
+                                  >Edit</button>
+                                  <button
+                                    onClick={() => handleDeleteParty(p.id)}
+                                    className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded font-bold text-[10px]"
+                                  >Delete</button>
+                                </td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
                   </div>

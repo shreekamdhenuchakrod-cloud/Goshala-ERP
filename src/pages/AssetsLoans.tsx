@@ -12,6 +12,8 @@ export const AssetsLoans: React.FC = () => {
   const [fixedAssets, setFixedAssets] = useState<Ledger[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [repayVouchers, setRepayVouchers] = useState<Voucher[]>([]);
+  const [sundryCreditors, setSundryCreditors] = useState<{ id: string; name: string; phone: string; balance: number; billsCount: number }[]>([]);
+  const [totalCreditorLiability, setTotalCreditorLiability] = useState<number>(0);
 
   // Modals visibility
   const [showAssetModal, setShowAssetModal] = useState(false);
@@ -60,6 +62,34 @@ export const AssetsLoans: React.FC = () => {
     const allVouchers = GoshalaDB.getTable<Voucher>('vouchers');
     const loanRepays = allVouchers.filter(v => v.voucherType === 'LOAN_REPAYMENT' || v.narration.toLowerCase().includes('loan repayment') || v.narration.toLowerCase().includes('ऋण'));
     setRepayVouchers(loanRepays.reverse());
+
+    // Calculate Sundry Creditors (Vendor Liabilities)
+    const contacts = GoshalaDB.getTable<any>('contacts');
+    const postedVouchers = allVouchers.filter(v => v.status === 'POSTED');
+    const generalCreditorLedger = ledgers.find(l => l.id === 'l-liab-creditors');
+
+    const creditorList = contacts.map((p: any) => {
+      const pVouchers = postedVouchers.filter(v => v.narration?.toLowerCase().includes(p.name.toLowerCase()));
+      const creditBillsSum = pVouchers
+        .filter(v => v.entries.some(e => e.ledgerId === 'l-liab-creditors' && !e.isDebit))
+        .reduce((s, v) => s + (v.entries.find(e => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
+      const paymentsSum = pVouchers
+        .filter(v => v.entries.some(e => e.ledgerId === 'l-liab-creditors' && e.isDebit))
+        .reduce((s, v) => s + (v.entries.find(e => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
+
+      const netBalance = (p.outstandingBalance || 0) + creditBillsSum - paymentsSum;
+      return {
+        id: p.id,
+        name: p.name,
+        phone: p.phone,
+        balance: netBalance,
+        billsCount: pVouchers.length
+      };
+    }).filter((p: any) => p.balance !== 0 || p.billsCount > 0);
+
+    setSundryCreditors(creditorList);
+    const totalCreditorBal = generalCreditorLedger ? generalCreditorLedger.currentBalance : creditorList.reduce((sum: number, p: any) => sum + Math.max(0, p.balance), 0);
+    setTotalCreditorLiability(totalCreditorBal);
   };
 
   const handleOpenAssetCreate = () => {
@@ -413,7 +443,7 @@ export const AssetsLoans: React.FC = () => {
       </div>
 
       {/* Vitals Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-2">
           <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">
             {language === 'hi' ? 'कुल अचल संपत्ति (Fixed Assets)' : 'Total Fixed Assets'}
@@ -453,6 +483,84 @@ export const AssetsLoans: React.FC = () => {
             {language === 'hi' ? 'सफलतापूर्वक चुकता' : 'Successfully Paid Off'}
           </span>
         </div>
+
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-amber-200/60 dark:border-amber-700/50 shadow-sm space-y-2 bg-gradient-to-br from-amber-50/30 to-transparent">
+          <span className="text-[10px] text-amber-700 dark:text-amber-400 font-extrabold uppercase tracking-wider block">
+            {language === 'hi' ? 'कुल लेनदार उधारी (Creditors)' : 'Outstanding Creditors'}
+          </span>
+          <p className="text-2xl font-black text-amber-600 dark:text-amber-400">₹{totalCreditorLiability.toLocaleString()}</p>
+          <span className="text-[9px] text-amber-800 dark:text-amber-300 font-bold bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded-full inline-block">
+          </span>
+        </div>
+      </div>
+
+      {/* 🛒 OUTSTANDING CREDITORS FOR PURCHASE (लेनदार उधारी बकाया) */}
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-amber-200/70 dark:border-amber-700/50 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="p-2 bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded-xl font-black">🛒</span>
+              <h3 className="text-base font-extrabold text-slate-850 dark:text-white">
+                {language === 'hi' ? 'Outstanding Creditor for Purchase (लेनदार बकाया उधारी)' : 'Outstanding Creditors for Purchase'}
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {language === 'hi'
+                ? 'सामग्री, चारा, भूसा व निर्माण सामान का उधारी बकाया जो सप्लायरों को देना बाकी है'
+                : 'Track pending vendor bills and credit purchase liabilities in real-time'}
+            </p>
+          </div>
+          <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700/50 rounded-2xl text-right">
+            <p className="text-[10px] text-amber-700 dark:text-amber-300 font-bold uppercase tracking-wider">कुल लेनदार उधारी बकाया (Total Creditor Payable)</p>
+            <p className="text-xl font-black text-amber-600 dark:text-amber-400">₹{totalCreditorLiability.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {sundryCreditors.length === 0 ? (
+          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-2xl text-emerald-800 dark:text-emerald-300 text-xs font-bold text-center">
+            ✅ कोई उधारी बकाया नहीं है! सभी वेंडर्स का भुगतान पूर्ण है।
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-semibold uppercase text-[10px]">
+                  <th className="pb-3">Party / Vendor Name (विक्रेता का नाम)</th>
+                  <th className="pb-3">Contact Number (मोबाइल)</th>
+                  <th className="pb-3">Bills Count (कुल लेनदेन)</th>
+                  <th className="pb-3">Outstanding Amount (बाकी उधारी राशि)</th>
+                  <th className="pb-3 text-right">Status (स्थिति)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                {sundryCreditors.map((creditor, idx) => (
+                  <tr key={creditor.id || idx} className="hover:bg-amber-50/30 dark:hover:bg-slate-900/40">
+                    <td className="py-3 font-extrabold text-slate-850 dark:text-white flex items-center space-x-2">
+                      <span className="w-7 h-7 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 font-black flex items-center justify-center text-xs">
+                        {creditor.name.charAt(0).toUpperCase()}
+                      </span>
+                      <span>{creditor.name}</span>
+                    </td>
+                    <td className="py-3 font-mono">{creditor.phone || '—'}</td>
+                    <td className="py-3 font-bold">{creditor.billsCount} रिकॉर्ड्स</td>
+                    <td className="py-3 font-black text-amber-600 dark:text-amber-400 text-sm">
+                      ₹{creditor.balance.toLocaleString()}
+                    </td>
+                    <td className="py-3 text-right">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black ${
+                        creditor.balance > 0
+                          ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300/40'
+                          : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300/40'
+                      }`}>
+                        {creditor.balance > 0 ? '⚠️ देना बाकी (Payable)' : '✅ चुकता (Settled)'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
