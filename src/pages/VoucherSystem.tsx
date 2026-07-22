@@ -345,8 +345,21 @@ export const VoucherSystem: React.FC = () => {
 
     const activeFy = GoshalaDB.getTable<any>('fys').find(f => f.id === (config as any).activeFyId);
     if (activeFy && activeFy.status !== 'ACTIVE') {
-      alert(`ERROR: Financial Year (${activeFy.name}) is currently CLOSED or LOCKED. You must unlock this financial year in Settings before entering or modifying any vouchers!`);
+      alert(language === 'hi'
+        ? `⚠️ त्रुटि: वित्तीय वर्ष (${activeFy.name}) अभी CLOSED या LOCKED है! वाउचर दर्ज या संपादित करने के लिए पहले सेटिंग्स में जाकर इसे unlock करें।`
+        : `ERROR: Financial Year (${activeFy.name}) is currently CLOSED or LOCKED. You must unlock this financial year in Settings before entering or modifying any vouchers!`
+      );
       return;
+    }
+
+    if (activeFy) {
+      if (vDate < activeFy.startDate || vDate > activeFy.endDate) {
+        alert(language === 'hi'
+          ? `❌ दिनांक त्रुटि: प्रविष्टि की तारीख (${vDate}) केवल सक्रिय वित्तीय वर्ष (${activeFy.name}) की सीमा (${activeFy.startDate} से ${activeFy.endDate}) के अंदर होनी चाहिए!`
+          : `❌ Date Error: Voucher date (${vDate}) must be within active Financial Year (${activeFy.name}) bounds (${activeFy.startDate} to ${activeFy.endDate})!`
+        );
+        return;
+      }
     }
 
     if (!selectedParticular || !selectedCashBank || singleAmount <= 0) {
@@ -857,7 +870,16 @@ export const VoucherSystem: React.FC = () => {
         </div>
         {!isCreating && (
           <button
-            onClick={() => setIsCreating(true)}
+            onClick={() => {
+              if (activeFyObj && (activeFyObj.status === 'LOCKED' || activeFyObj.status === 'CLOSED')) {
+                alert(language === 'hi'
+                  ? `⚠️ ध्यान दें: वित्तीय वर्ष (${activeFyObj.name}) अभी Locked/Closed है। इसमें नई प्रविष्टि करने के लिए सेटिंग्स में जाकर इसे unlock करें।`
+                  : `⚠️ Notice: Financial Year (${activeFyObj.name}) is CLOSED/LOCKED. You must unlock it in Settings before creating entries.`
+                );
+                return;
+              }
+              setIsCreating(true);
+            }}
             className="w-full sm:w-auto px-5 py-2.5 bg-forest-600 hover:bg-forest-750 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center space-x-1.5"
           >
             <Plus className="w-4 h-4" />

@@ -29,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleM
     setFys(allFys);
     
     const config = GoshalaDB.getTable<any>('config')[0] || { activeFyId: 'fy-2025-26' };
-    const currentFy = allFys.find(f => f.id === config.activeFyId || f.status === 'ACTIVE');
+    const currentFy = allFys.find(f => f.id === config.activeFyId) || allFys.find(f => f.status === 'ACTIVE') || allFys[0];
     if (currentFy) {
       setActiveFy(currentFy.id);
     }
@@ -65,6 +65,13 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleM
   }, []);
 
   const handleFyChange = (fyId: string) => {
+    const targetFy = fys.find(f => f.id === fyId);
+    if (targetFy && (targetFy.status === 'LOCKED' || targetFy.status === 'CLOSED')) {
+      alert(language === 'hi'
+        ? `⚠️ ध्यान दें: वित्तीय वर्ष (${targetFy.name}) अभी locked/closed है। इसमें नई एंट्री करने या बदलने के लिए आपको सेटिंग्स में जाकर इसे unlock करना होगा।`
+        : `⚠️ Notice: Financial Year (${targetFy.name}) is locked/closed. To add or edit entries, you must unlock it in Settings.`
+      );
+    }
     setActiveFy(fyId);
     const config = GoshalaDB.getTable<any>('config');
     const erpConfig = config[0] || { activeFyId: fyId };
