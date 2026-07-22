@@ -226,10 +226,26 @@ export class GoshalaDB {
     return table[0] || SEED_CONFIG;
   }
 
-  static getActiveFy(): FinancialYear {
+  static getActiveFyId(): string {
+    const stored = localStorage.getItem('goshala_active_fy_id');
+    if (stored) return stored;
     const config = this.getConfig();
+    return config?.activeFyId || 'fy-2025-26';
+  }
+
+  static setActiveFyId(fyId: string): void {
+    localStorage.setItem('goshala_active_fy_id', fyId);
+    const configList = this.getTable<any>('config');
+    const config = configList[0] || { ...SEED_CONFIG };
+    config.activeFyId = fyId;
+    this.saveTable('config', [config]);
+    window.dispatchEvent(new CustomEvent('goshala_fy_changed', { detail: { fyId } }));
+  }
+
+  static getActiveFy(): FinancialYear {
+    const activeFyId = this.getActiveFyId();
     const fys = this.getTable<FinancialYear>('fys');
-    const fy = fys.find(f => f.id === config.activeFyId);
+    const fy = fys.find(f => f.id === activeFyId);
     if (fy) return fy;
     const active = fys.find(f => f.status === 'ACTIVE');
     if (active) return active;

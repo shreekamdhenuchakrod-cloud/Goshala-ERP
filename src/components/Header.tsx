@@ -28,11 +28,8 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleM
     const allFys = GoshalaDB.getTable<FinancialYear>('fys');
     setFys(allFys);
     
-    const config = GoshalaDB.getTable<any>('config')[0] || { activeFyId: 'fy-2025-26' };
-    const currentFy = allFys.find(f => f.id === config.activeFyId) || allFys.find(f => f.status === 'ACTIVE') || allFys[0];
-    if (currentFy) {
-      setActiveFy(currentFy.id);
-    }
+    const currentFyId = GoshalaDB.getActiveFyId();
+    setActiveFy(currentFyId);
 
     // Build notifications from DB accounting alerts
     const alerts: string[] = [];
@@ -72,11 +69,8 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleM
         : `⚠️ Notice: Financial Year (${targetFy.name}) is locked/closed. To add or edit entries, you must unlock it in Settings.`
       );
     }
+    GoshalaDB.setActiveFyId(fyId);
     setActiveFy(fyId);
-    const config = GoshalaDB.getTable<any>('config');
-    const erpConfig = config[0] || { activeFyId: fyId };
-    erpConfig.activeFyId = fyId;
-    GoshalaDB.saveTable('config', [erpConfig]);
     window.location.reload();
   };
 
