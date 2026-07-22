@@ -41,6 +41,7 @@ export const VoucherSystem: React.FC = () => {
 
   // Registries state
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [fys, setFys] = useState<any[]>([]);
   const [ledgers, setLedgers] = useState<Ledger[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -115,6 +116,7 @@ export const VoucherSystem: React.FC = () => {
     setLedgers(GoshalaDB.getTable<Ledger>('ledgers'));
     setCostCenters(GoshalaDB.getTable<CostCenter>('cost_centers'));
     setContacts(GoshalaDB.getTable<Contact>('contacts'));
+    setFys(GoshalaDB.getTable<any>('fys'));
   };
 
   // Image compressor utility
@@ -568,6 +570,19 @@ export const VoucherSystem: React.FC = () => {
     return str + 'Rupees Only';
   };
 
+  useEffect(() => {
+    if (!editingVoucher) {
+      const activeFyObj = GoshalaDB.getTable<any>('fys').find(f => f.id === (config.activeFyId || 'fy-2025-26'));
+      const fyMin = activeFyObj?.startDate || '2025-04-01';
+      const fyMax = activeFyObj?.endDate || '2026-03-31';
+      const today = new Date().toISOString().split('T')[0];
+      
+      if (today < fyMin) setVDate(fyMin);
+      else if (today > fyMax) setVDate(fyMax);
+      else setVDate(today);
+    }
+  }, [config.activeFyId, editingVoucher, isCreating]);
+
   // Multi-filter transaction records
   const filteredVouchers = vouchers.filter(v => {
     // 0. Active Financial Year Filter
@@ -618,6 +633,10 @@ export const VoucherSystem: React.FC = () => {
 
     return matchesSearch && matchesCategory && matchesLedger && matchesCc && matchesMode && matchesDate;
   });
+
+  const activeFyObj = GoshalaDB.getTable<any>('fys').find(f => f.id === (config.activeFyId || 'fy-2025-26'));
+  const minDate = activeFyObj?.startDate || '2025-04-01';
+  const maxDate = activeFyObj?.endDate || '2026-03-31';
 
   return (
     <div className="space-y-6">
@@ -772,7 +791,7 @@ export const VoucherSystem: React.FC = () => {
                   <div className="py-2 text-[10px] leading-relaxed">
                     {language === 'hi' ? (
                       <>
-                        राशि <strong>₹{deb?.amount.toLocaleString()}</strong> (अक्षरी: <strong>{amountToHindiWords(deb?.amount || 0)}</strong>) का भुगतान प्राप्तकर्ता के पक्ष में किया गया।
+                        राशि <strong>₹{deb?.amount.toLocaleString()}</strong> (अक्षरी: <strong>{amountToHindiWords(deb?.amount || 0)}</strong>) का भुगतान प्राप्तकर्ता के पक्ष में किया गया.
                         <p className="mt-2 font-semibold text-slate-600 italic">टिप्पणी: {customNote}</p>
                       </>
                     ) : (
@@ -871,13 +890,15 @@ export const VoucherSystem: React.FC = () => {
               </div>
 
               <div className="space-y-1">
-                <label>Date (दिनांक)</label>
-                <input
-                  type="date"
-                  required
-                  value={vDate}
-                  onChange={(e) => setVDate(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-normal"
+                <label>Voucher Date (वाउचर दिनांक)</label>
+                <input 
+                  type="date" 
+                  required 
+                  value={vDate} 
+                  min={minDate}
+                  max={maxDate}
+                  onChange={(e) => setVDate(e.target.value)} 
+                  className="w-full px-3.5 py-2.5 border rounded-xl text-slate-850 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 font-normal focus:ring-2 focus:ring-forest-500 focus:border-forest-500" 
                 />
               </div>
 
