@@ -18,6 +18,7 @@ interface SamitiMember {
 export const Settings: React.FC = () => {
   const { user } = useAuth();
   const { language, t } = useLanguage();
+  const [showDangerZone, setShowDangerZone] = useState(false);
   
   const [activeTab, setActiveTab] = useState<'org' | 'acct_prefs' | 'tax' | 'bank' | 'print' | 'ledgers' | 'cost_centers' | 'fys' | 'pay_modes' | 'security' | 'danger_zone' | 'members' | 'parties'>('org');
 
@@ -2195,55 +2196,80 @@ export const Settings: React.FC = () => {
                 </div>
               </div>
 
-              {/* Danger Zone / खतरा क्षेत्र */}
-              <div className="bg-red-50/60 dark:bg-red-950/30 p-6 rounded-3xl border-2 border-red-500/40 shadow-md space-y-4">
-                <div className="flex items-center space-x-2 text-red-650 dark:text-red-400">
-                  <AlertTriangle className="w-5 h-5 text-red-600 animate-pulse" />
-                  <h3 className="font-black text-base uppercase tracking-wider">
-                    {language === 'hi' ? '🚨 Danger Zone (खतरा क्षेत्र - रीसेट विकल्प)' : '🚨 Danger Zone (System Reset)'}
-                  </h3>
-                </div>
-                <p className="text-xs text-red-700 dark:text-red-300 font-semibold leading-relaxed">
-                  {language === 'hi'
-                    ? 'चेतावनी: नीचे दिए गए विकल्पों का उपयोग केवल आपात स्थिति में करें। डेटा रीसेट करने से पहले हमेशा ऊपर दिए गए बटन से बैकअप फ़ाइल डाउनलोड कर लें।'
-                    : 'Warning: Use the options below with extreme caution. Always export a local backup file before executing any database wipe actions.'}
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-bold text-slate-500">
-                  <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-red-200 dark:border-red-900/50 shadow-sm space-y-3">
-                    <div className="space-y-1">
-                      <h4 className="text-red-650 font-extrabold text-sm flex items-center space-x-1">
-                        <span>Factory Database Reset</span>
-                      </h4>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-normal leading-relaxed">
-                        Clears custom transaction logs & user additions. Restores baseline historical CA records and resets Security PIN.
-                      </p>
+              {/* Collapsible Danger Zone Section */}
+              <div className="pt-4 border-t">
+                {!showDangerZone ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDangerZone(true)}
+                    className="w-full py-3.5 px-5 bg-red-50/50 hover:bg-red-100/60 dark:bg-red-950/20 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-900/50 rounded-2xl text-red-650 dark:text-red-400 font-extrabold text-xs flex items-center justify-between transition group shadow-xs"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="w-4 h-4 text-red-550 group-hover:scale-110 transition" />
+                      <span>{language === 'hi' ? '🔓 Danger Zone (खतरा क्षेत्र) खोलें' : '🔓 Reveal Danger Zone Options'}</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => requirePin(handleResetDatabase)}
-                      className="w-full py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-xl text-center shadow-md font-bold text-xs transition"
-                    >
-                      Re-seed Baseline Database
-                    </button>
-                  </div>
-                  <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-saffron-300 dark:border-saffron-900/50 shadow-sm space-y-3">
-                    <div className="space-y-1">
-                      <h4 className="text-saffron-700 dark:text-saffron-400 font-extrabold text-sm">
-                        Clear Vouchers & Start Clean (खाता खाली करें)
-                      </h4>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-normal leading-relaxed">
-                        Wipes receipt, payment, and contra vouchers to give you a 100% clean ledger with zero transactions.
-                      </p>
+                    <ChevronDown className="w-4 h-4 text-red-500" />
+                  </button>
+                ) : (
+                  <div className="bg-red-50/70 dark:bg-red-950/40 p-6 rounded-3xl border-2 border-red-500/50 shadow-lg space-y-4">
+                    <div className="flex items-center justify-between border-b border-red-200 dark:border-red-900/40 pb-3">
+                      <div className="flex items-center space-x-2 text-red-650 dark:text-red-400">
+                        <AlertTriangle className="w-5 h-5 text-red-600 animate-pulse" />
+                        <h3 className="font-black text-base uppercase tracking-wider">
+                          {language === 'hi' ? '🚨 Danger Zone (खतरा क्षेत्र - रीसेट विकल्प)' : '🚨 Danger Zone (System Reset Controls)'}
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowDangerZone(false)}
+                        className="text-xs text-red-600 dark:text-red-400 hover:underline font-bold"
+                      >
+                        {language === 'hi' ? 'छिपाएं (Hide Danger Zone)' : 'Hide Controls'}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => requirePin(handleClearAllTransactions)}
-                      className="w-full py-2.5 bg-saffron-600 hover:bg-saffron-700 active:scale-95 text-white rounded-xl text-center shadow-md font-bold text-xs transition"
-                    >
-                      Clear Vouchers & Start Clean
-                    </button>
+                    <p className="text-xs text-red-700 dark:text-red-300 font-semibold leading-relaxed">
+                      {language === 'hi'
+                        ? 'चेतावनी: नीचे दिए गए विकल्पों का उपयोग केवल आपात स्थिति में करें। डेटा रीसेट करने से पहले हमेशा ऊपर दिए गए बटन से बैकअप फ़ाइल डाउनलोड कर लें।'
+                        : 'Warning: Use the options below with extreme caution. Always export a local backup file before executing any database wipe actions.'}
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-bold text-slate-500">
+                      <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-red-200 dark:border-red-900/50 shadow-sm space-y-3">
+                        <div className="space-y-1">
+                          <h4 className="text-red-650 font-extrabold text-sm flex items-center space-x-1">
+                            <span>Factory Database Reset</span>
+                          </h4>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-normal leading-relaxed">
+                            Clears custom transaction logs & user additions. Restores baseline historical CA records and resets Security PIN.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => requirePin(handleResetDatabase)}
+                          className="w-full py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-xl text-center shadow-md font-bold text-xs transition"
+                        >
+                          Re-seed Baseline Database
+                        </button>
+                      </div>
+                      <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-saffron-300 dark:border-saffron-900/50 shadow-sm space-y-3">
+                        <div className="space-y-1">
+                          <h4 className="text-saffron-700 dark:text-saffron-400 font-extrabold text-sm">
+                            Clear Vouchers & Start Clean (खाता खाली करें)
+                          </h4>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-normal leading-relaxed">
+                            Wipes receipt, payment, and contra vouchers to give you a 100% clean ledger with zero transactions.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => requirePin(handleClearAllTransactions)}
+                          className="w-full py-2.5 bg-saffron-600 hover:bg-saffron-700 active:scale-95 text-white rounded-xl text-center shadow-md font-bold text-xs transition"
+                        >
+                          Clear Vouchers & Start Clean
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
             </div>

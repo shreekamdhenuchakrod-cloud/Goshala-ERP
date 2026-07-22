@@ -149,14 +149,15 @@ export class GoshalaDB {
   static hardResetToBaseline() {
     const savedConfig = localStorage.getItem('goshala_erp_config');
 
-    // Remove ALL ERP keys except config
+    // Remove ALL local storage keys
+    localStorage.removeItem('goshala_erp_seeded');
     Object.keys(localStorage)
-      .filter(k => k.startsWith('goshala_erp_') && k !== 'goshala_erp_config')
+      .filter(k => k.startsWith('goshala_erp_') && k !== 'goshala_erp_app_pin')
       .forEach(k => localStorage.removeItem(k));
 
     if (savedConfig) localStorage.setItem('goshala_erp_config', savedConfig);
 
-    // CRITICAL FIX: Wipe the PIN from Firebase to solve the "default PIN" issue
+    // Wipe the PIN from Firebase
     try {
       const pinRef = doc(db, 'goshala_erp', 'security_pin');
       deleteDoc(pinRef).catch(() => {});
@@ -164,33 +165,88 @@ export class GoshalaDB {
       console.warn('Could not delete Firebase PIN:', e);
     }
 
-    // CRITICAL FIX: We MUST overwrite Firebase with the clean baseline seeds, 
-    // otherwise the cloud sync will immediately pull the corrupted QA data back down!
-    this.saveTable('vouchers', SEED_VOUCHERS);
-    this.saveTable('cows', SEED_COWS);
-    this.saveTable('ledgers', SEED_LEDGERS.map(l => ({
+    // Overwrite ALL Firestore collections with clean baseline seeds so cloud sync won't restore old data
+    const cleanLedgers = SEED_LEDGERS.map(l => ({
       ...l,
       openingBalance: l.openingBalance || 0,
       currentBalance: l.currentBalance || 0
-    })));
-    this.saveTable('bank_accounts', SEED_BANK_ACCOUNTS.map(ba => ({
+    }));
+
+    const cleanBanks = SEED_BANK_ACCOUNTS.map(ba => ({
       ...ba,
       currentBalance: ba.currentBalance || 0
-    })));
-    this.saveTable('loans', SEED_LOANS);
+    }));
+
+    this.saveTable('fys', SEED_FYS);
+    this.saveTable('groups', SEED_GROUPS);
+    this.saveTable('ledgers', cleanLedgers);
     this.saveTable('cost_centers', SEED_COST_CENTERS);
-    
+    this.saveTable('cows', SEED_COWS);
+    this.saveTable('bank_accounts', cleanBanks);
+    this.saveTable('config', [SEED_CONFIG]);
+    this.saveTable('loans', SEED_LOANS);
+    this.saveTable('vouchers', SEED_VOUCHERS);
+    this.saveTable('donations', []);
+    this.saveTable('grants', []);
+    this.saveTable('employees', []);
+    this.saveTable('attendance', []);
+    this.saveTable('payroll', []);
+    this.saveTable('inventory', SEED_INVENTORY || []);
+    this.saveTable('batches', []);
+    this.saveTable('stock_tx', []);
+    this.saveTable('samiti_members', []);
+    this.saveTable('contacts', SEED_CONTACTS || []);
+
     // Force re-seed local
     this.init();
+    this.recalculateLedgers();
   }
 
   // Wipe only user-entered vouchers, keep seed historical data
   static wipeUserVouchers() {
-    // Keep only seed vouchers (ids that start with 'v-')
     const allVouchers = this.getTable<Voucher>('vouchers');
     const seedOnly = allVouchers.filter(v => v.id.startsWith('v-'));
     this.saveTable('vouchers', seedOnly);
     this.recalculateLedgers();
+  }
+
+  // Clear ALL vouchers to start clean
+  static clearAllTransactions() {
+    this.saveTable('vouchers', []);
+    this.saveTable('donations', []);
+    this.saveTable('grants', []);
+    this.saveTable('stock_tx', []);
+    this.saveTable('payroll', []);
+    this.saveTable('attendance', []);
+    this.recalculateLedgers();
+  }
+
+  // General Accessors
+  static getTable<T>(name: string): T[] {
+    this.init();
+    const data = getStorageItem<any>(`goshala_erp_${name}`, []);
+    
+    // Safety check for config: always return [ERPConfig] as array
+    if (name === 'config') {
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        return [SEED_CONFIG] as any;
+      }
+      if (!Array.isArray(data)) {
+        return [data] as any;
+      }
+      return data;
+    }
+
+    const items = Array.isArray(data) ? data : [];
+    if (name === 'vouchers') {
+      items.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }
+    return items;
+  }
+
+  static saveTable<T>(name: string, data: T[]): void {
+    setStorageItem(`goshala_erp_${name}`, data);
+    syncTableToFirestore(name, data);
   }
 
   static initFirebaseSync() {
@@ -248,21 +304,6 @@ export class GoshalaDB {
         notifySyncStatus('offline');
       }
     });
-  }
-
-  // General Accessors
-  static getTable<T>(name: string): T[] {
-    this.init();
-    const data = getStorageItem<T[]>(`goshala_erp_${name}`, []);
-    if (name === 'vouchers') {
-      (data as any).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    }
-    return data;
-  }
-
-  static saveTable<T>(name: string, data: T[]): void {
-    setStorageItem(`goshala_erp_${name}`, data);
-    syncTableToFirestore(name, data);
   }
 
   // Recalculates ledger accounts from all POSTED vouchers
