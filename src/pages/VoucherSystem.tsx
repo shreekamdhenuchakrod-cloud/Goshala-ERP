@@ -552,7 +552,7 @@ export const VoucherSystem: React.FC = () => {
   // Helper selectors
   const expenseLedgers = ledgers.filter(l => l.type === 'EXPENSE');
   const incomeLedgers = ledgers.filter(l => l.type === 'INCOME');
-  const cashBankLedgers = ledgers.filter(l => l.groupId === 'g-current-assets' && l.id !== 'l-tds-receivable');
+  const cashBankLedgers = ledgers.filter(l => (l.groupId === 'g-current-assets' && l.id !== 'l-tds-receivable') || l.groupId === 'g-current-liab' || l.id === 'l-liab-creditors');
 
   const getLedgerName = (id: string) => ledgers.find(l => l.id === id)?.name || id;
   const getCostCenterName = (id?: string) => costCenters.find(c => c.id === id)?.name || 'General';
@@ -1069,6 +1069,20 @@ export const VoucherSystem: React.FC = () => {
                     <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
                   ))}
                 </select>
+                {selectedContactId && (() => {
+                  const party = contacts.find((c: any) => c.id === selectedContactId);
+                  if (!party) return null;
+                  const partyVouchers = vouchers.filter(v => v.status === 'POSTED' && (v.narration?.toLowerCase().includes(party.name.toLowerCase())));
+                  const totalBills = partyVouchers.filter(v => v.entries.some(e => e.ledgerId === 'l-liab-creditors' && !e.isDebit)).reduce((s, v) => s + (v.entries.find(e => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
+                  const totalPaid = partyVouchers.filter(v => v.entries.some(e => e.ledgerId === 'l-liab-creditors' && e.isDebit)).reduce((s, v) => s + (v.entries.find(e => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
+                  const outstanding = (party.outstandingBalance || 0) + totalBills - totalPaid;
+                  return (
+                    <div className="mt-1.5 p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700/50 rounded-xl text-xs flex justify-between items-center text-amber-900 dark:text-amber-200 font-bold shadow-xs">
+                      <span>🤝 Party: {party.name}</span>
+                      <span>बकाया लेनदार (Outstanding Payable): ₹{outstanding.toLocaleString()}</span>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="space-y-1.5">
