@@ -75,26 +75,52 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
     }
   };
 
+  const handleKeypadPress = (digit: string) => {
+    if (isFirstTime) {
+      if (pin.length < 4) setPin(prev => prev + digit);
+      else if (confirmPin.length < 4) setConfirmPin(prev => prev + digit);
+    } else {
+      if (pin.length < 4) setPin(prev => prev + digit);
+    }
+  };
+
+  const handleKeypadBackspace = () => {
+    if (isFirstTime) {
+      if (confirmPin.length > 0) setConfirmPin(prev => prev.slice(0, -1));
+      else setPin(prev => prev.slice(0, -1));
+    } else {
+      setPin(prev => prev.slice(0, -1));
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-slate-900 flex items-center justify-center p-4 z-50 font-sans text-slate-100">
-      <div className="bg-slate-800 p-6 sm:p-8 rounded-3xl border border-slate-750 max-w-md w-full text-center space-y-6 shadow-2xl">
-        <div className="flex flex-col items-center space-y-2">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-forest-600/25 rounded-2xl flex items-center justify-center border border-forest-500/50">
-            <span className="text-2xl font-black text-forest-400">🐂</span>
+    <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-forest-950 flex items-center justify-center p-4 z-50 font-sans text-slate-100 selection:bg-forest-500 selection:text-white">
+      {/* Background glowing orb */}
+      <div className="absolute w-96 h-96 bg-forest-500/10 rounded-full blur-3xl -top-20 -left-20 pointer-events-none"></div>
+      <div className="absolute w-96 h-96 bg-saffron-500/10 rounded-full blur-3xl -bottom-20 -right-20 pointer-events-none"></div>
+
+      <div className="bg-slate-900/80 backdrop-blur-2xl p-6 sm:p-8 rounded-3xl border border-slate-750/80 max-w-md w-full text-center space-y-6 shadow-2xl relative overflow-hidden">
+        
+        {/* Security Badge Header */}
+        <div className="flex flex-col items-center space-y-3">
+          <div className="w-16 h-16 bg-gradient-to-tr from-forest-700 to-forest-500 rounded-2xl flex items-center justify-center border border-forest-400/30 shadow-lg shadow-forest-900/40 transform hover:scale-105 transition">
+            <span className="text-3xl">🐂</span>
           </div>
-          <h2 className="text-sm sm:text-base font-black tracking-wide text-forest-400">SHREE KRISHNA BALRAM GOUSHALA</h2>
-          <p className="text-slate-400 text-xs">Enterprise ERP & Accounting Terminal</p>
+          <div>
+            <h2 className="text-base font-black tracking-wider text-white">SHREE KRISHNA BALRAM GOUSHALA</h2>
+            <p className="text-forest-400 text-xs font-semibold tracking-wide uppercase mt-0.5">Secured ERP & Financial Vault</p>
+          </div>
         </div>
 
         {isFirstTime ? (
-          <form onSubmit={handleCreatePin} className="space-y-4">
-            <div className="p-3 bg-forest-950/40 border border-forest-700/50 rounded-2xl text-left space-y-1">
-              <p className="text-xs font-bold text-forest-400">First-Time Setup (प्रथम पंजीकरण)</p>
-              <p className="text-[10px] text-slate-300">No PIN exists. Please create your own 4-digit security PIN.</p>
+          <form onSubmit={handleCreatePin} className="space-y-5">
+            <div className="p-3.5 bg-forest-950/60 border border-forest-500/30 rounded-2xl text-left space-y-1">
+              <p className="text-xs font-extrabold text-forest-400">First-Time Setup (प्रथम पंजीकरण)</p>
+              <p className="text-[11px] text-slate-300">Create a 4-digit security PIN to protect accounting logs.</p>
             </div>
             
-            <div className="space-y-2 text-left">
-              <label className="text-[10px] text-slate-400 font-bold uppercase block">Create 4-Digit Security PIN</label>
+            <div className="space-y-3 text-left">
+              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Create 4-Digit Security PIN</label>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -103,12 +129,12 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 placeholder="••••"
-                className="w-full text-center tracking-[1em] text-2xl font-bold px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-750 text-white"
+                className="w-full text-center tracking-[1em] text-2xl font-bold px-4 py-3 rounded-2xl bg-slate-950 border border-slate-700 text-emerald-400 focus:outline-none focus:border-forest-500 focus:ring-2 focus:ring-forest-500/40"
               />
             </div>
 
-            <div className="space-y-2 text-left">
-              <label className="text-[10px] text-slate-400 font-bold uppercase block">Confirm Security PIN</label>
+            <div className="space-y-3 text-left">
+              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Confirm Security PIN</label>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -117,17 +143,32 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
                 value={confirmPin}
                 onChange={(e) => setConfirmPin(e.target.value)}
                 placeholder="••••"
-                className="w-full text-center tracking-[1em] text-2xl font-bold px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-750 text-white"
+                className="w-full text-center tracking-[1em] text-2xl font-bold px-4 py-3 rounded-2xl bg-slate-950 border border-slate-700 text-emerald-400 focus:outline-none focus:border-forest-500 focus:ring-2 focus:ring-forest-500/40"
               />
             </div>
 
-            <button type="submit" className="w-full py-2.5 bg-forest-600 hover:bg-forest-750 text-white font-bold text-xs rounded-xl transition shadow">
+            <button type="submit" className="w-full py-3 bg-gradient-to-r from-forest-600 to-forest-500 hover:from-forest-550 hover:to-forest-450 active:scale-95 text-white font-extrabold text-xs rounded-2xl transition shadow-lg shadow-forest-950">
               Create PIN & Enter ERP
             </button>
           </form>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <p className="text-xs text-slate-400 font-semibold">Enter your 4-digit security PIN to unlock</p>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <p className="text-xs text-slate-300 font-medium">Enter 4-digit security PIN to unlock vault</p>
+            
+            {/* Glowing Dot Indicators */}
+            <div className="flex justify-center space-x-3 py-2">
+              {[0, 1, 2, 3].map(i => (
+                <div
+                  key={i}
+                  className={`w-4 h-4 rounded-full transition-all duration-300 ${
+                    i < pin.length
+                      ? 'bg-emerald-400 shadow-md shadow-emerald-400/50 scale-110'
+                      : 'bg-slate-800 border border-slate-700'
+                  }`}
+                />
+              ))}
+            </div>
+
             <input
               type="password"
               autoComplete="new-password"
@@ -136,16 +177,48 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               placeholder="••••"
-              className="w-full text-center tracking-[1em] text-2xl font-bold px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-750 text-white"
+              className="w-full text-center tracking-[1.2em] text-3xl font-extrabold px-4 py-3 rounded-2xl bg-slate-950 border border-slate-700 text-emerald-400 focus:outline-none focus:border-forest-500 focus:ring-2 focus:ring-forest-500/40"
             />
+
             {error && (
-              <p className="text-red-400 text-xs font-bold">
+              <p className="text-red-400 text-xs font-bold animate-bounce">
                 Incorrect PIN! Please try again.
               </p>
             )}
-            <button type="submit" className="w-full py-2.5 bg-forest-650 hover:bg-forest-750 text-white font-bold text-xs rounded-xl transition shadow">
-              Unlock Terminal
-            </button>
+
+            {/* On-screen Keypad */}
+            <div className="grid grid-cols-3 gap-2.5 pt-1 max-w-[280px] mx-auto">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(num => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => handleKeypadPress(num)}
+                  className="h-12 rounded-xl bg-slate-800/80 hover:bg-slate-750 active:bg-forest-600 text-slate-100 font-extrabold text-lg border border-slate-700/60 shadow-sm transition active:scale-95"
+                >
+                  {num}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={handleKeypadBackspace}
+                className="h-12 rounded-xl bg-slate-800/60 hover:bg-slate-750 active:bg-slate-700 text-slate-400 font-bold text-xs border border-slate-700/60 transition active:scale-95"
+              >
+                ⌫ Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => handleKeypadPress('0')}
+                className="h-12 rounded-xl bg-slate-800/80 hover:bg-slate-750 active:bg-forest-600 text-slate-100 font-extrabold text-lg border border-slate-700/60 shadow-sm transition active:scale-95"
+              >
+                0
+              </button>
+              <button
+                type="submit"
+                className="h-12 rounded-xl bg-forest-600 hover:bg-forest-500 text-white font-extrabold text-xs shadow-md shadow-forest-950 transition active:scale-95"
+              >
+                ➔ Unlock
+              </button>
+            </div>
           </form>
         )}
       </div>

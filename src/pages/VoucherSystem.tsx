@@ -598,18 +598,15 @@ export const VoucherSystem: React.FC = () => {
 
   // Multi-filter transaction records
   const filteredVouchers = vouchers.filter(v => {
-    // 0. Active Financial Year Filter
-    const activeFyId = config.activeFyId || 'fy-2025-26';
-    const activeFyObj = GoshalaDB.getTable<any>('fys').find(f => f.id === activeFyId);
-    let matchesFy = false;
-    if (v.fyId && v.fyId === activeFyId) {
-      matchesFy = true;
-    } else if (activeFyObj && v.date >= activeFyObj.startDate && v.date <= activeFyObj.endDate) {
-      matchesFy = true;
-    } else if (!v.fyId && activeFyId === 'fy-2025-26' && (v.date <= '2026-03-31' || !v.date)) {
-      matchesFy = true;
+    // 0. Active Financial Year Filter (Strict Date-Based Boundary Matching)
+    const activeFyObj = GoshalaDB.getActiveFy();
+    if (activeFyObj && v.date) {
+      if (v.date < activeFyObj.startDate || v.date > activeFyObj.endDate) {
+        return false;
+      }
+    } else if (activeFyObj && v.fyId && v.fyId !== activeFyObj.id) {
+      return false;
     }
-    if (!matchesFy) return false;
 
     // 1. Search Query
     const query = searchTerm.toLowerCase();

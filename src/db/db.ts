@@ -221,6 +221,21 @@ export class GoshalaDB {
     this.recalculateLedgers();
   }
 
+  static getConfig(): ERPConfig {
+    const table = this.getTable<ERPConfig>('config');
+    return table[0] || SEED_CONFIG;
+  }
+
+  static getActiveFy(): FinancialYear {
+    const config = this.getConfig();
+    const fys = this.getTable<FinancialYear>('fys');
+    const fy = fys.find(f => f.id === config.activeFyId);
+    if (fy) return fy;
+    const active = fys.find(f => f.status === 'ACTIVE');
+    if (active) return active;
+    return fys[0] || { id: 'fy-2025-26', name: '2025-26', startDate: '2025-04-01', endDate: '2026-03-31', status: 'ACTIVE' };
+  }
+
   // General Accessors
   static getTable<T>(name: string): T[] {
     this.init();
