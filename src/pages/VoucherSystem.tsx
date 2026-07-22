@@ -343,7 +343,7 @@ export const VoucherSystem: React.FC = () => {
   const handleCreateVoucher = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const activeFy = GoshalaDB.getTable<any>('fys').find(f => f.id === (config as any).activeFyId);
+    const activeFy = GoshalaDB.getActiveFy();
     if (activeFy && activeFy.status !== 'ACTIVE') {
       alert(language === 'hi'
         ? `⚠️ त्रुटि: वित्तीय वर्ष (${activeFy.name}) अभी CLOSED या LOCKED है! वाउचर दर्ज या संपादित करने के लिए पहले सेटिंग्स में जाकर इसे unlock करें।`
@@ -403,7 +403,7 @@ export const VoucherSystem: React.FC = () => {
     if (editingVoucher) {
       const vToSave: Voucher = {
         ...editingVoucher,
-        fyId: editingVoucher.fyId || config.activeFyId || 'fy-2025-26',
+        fyId: editingVoucher.fyId || GoshalaDB.getActiveFyId(),
         date: vDate,
         voucherType: vType,
         costCenterId: vCostCenter,
@@ -418,7 +418,7 @@ export const VoucherSystem: React.FC = () => {
     } else {
       const vToSave: Voucher = {
         id: `v-${Date.now()}`,
-        fyId: config.activeFyId || 'fy-2025-26',
+        fyId: GoshalaDB.getActiveFyId(),
         voucherNumber: '', // auto generated
         voucherType: vType,
         date: vDate,
@@ -585,16 +585,16 @@ export const VoucherSystem: React.FC = () => {
 
   useEffect(() => {
     if (!editingVoucher) {
-      const activeFyObj = GoshalaDB.getTable<any>('fys').find(f => f.id === (config.activeFyId || 'fy-2025-26'));
-      const fyMin = activeFyObj?.startDate || '2025-04-01';
-      const fyMax = activeFyObj?.endDate || '2026-03-31';
+      const activeFyObj = GoshalaDB.getActiveFy();
+      const fyMin = activeFyObj.startDate;
+      const fyMax = activeFyObj.endDate;
       const today = new Date().toISOString().split('T')[0];
       
       if (today < fyMin) setVDate(fyMin);
       else if (today > fyMax) setVDate(fyMax);
       else setVDate(today);
     }
-  }, [config.activeFyId, editingVoucher, isCreating]);
+  }, [editingVoucher, isCreating]);
 
   // Multi-filter transaction records
   const filteredVouchers = vouchers.filter(v => {
@@ -653,9 +653,9 @@ export const VoucherSystem: React.FC = () => {
     return matchesSearch && matchesCategory && matchesLedger && matchesCc && matchesMode && matchesDate;
   });
 
-  const activeFyObj = GoshalaDB.getTable<any>('fys').find(f => f.id === (config.activeFyId || 'fy-2025-26'));
-  const minDate = activeFyObj?.startDate || '2025-04-01';
-  const maxDate = activeFyObj?.endDate || '2026-03-31';
+  const activeFyObj = GoshalaDB.getActiveFy();
+  const minDate = activeFyObj.startDate;
+  const maxDate = activeFyObj.endDate;
 
   return (
     <div className="space-y-6">
