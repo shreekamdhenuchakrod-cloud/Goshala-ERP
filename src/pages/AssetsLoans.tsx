@@ -84,22 +84,28 @@ export const AssetsLoans: React.FC = () => {
       const creditBillsSum = pVouchers
         .filter(v => v.entries.some(e => e.ledgerId === 'l-liab-creditors' && !e.isDebit))
         .reduce((s, v) => s + (v.entries.find(e => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
+      
       const paymentsSum = pVouchers
-        .filter(v => v.entries.some(e => e.ledgerId === 'l-liab-creditors' && e.isDebit))
-        .reduce((s, v) => s + (v.entries.find(e => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
+        .filter(v => v.voucherType === 'PAYMENT' || v.entries.some(e => e.ledgerId === 'l-liab-creditors' && e.isDebit))
+        .reduce((s, v) => {
+          const credAmt = v.entries.find(e => e.ledgerId === 'l-liab-creditors' && e.isDebit)?.amount;
+          if (credAmt) return s + credAmt;
+          const payAmt = v.entries.filter(e => !e.isDebit).reduce((sum, e) => sum + e.amount, 0);
+          return s + payAmt;
+        }, 0);
 
       const netBalance = (p.outstandingBalance || 0) + creditBillsSum - paymentsSum;
       return {
         id: p.id,
         name: p.name,
         phone: p.phone,
-        balance: netBalance,
+        balance: Math.max(0, netBalance),
         billsCount: pVouchers.length
       };
     }).filter((p: any) => p.balance > 0);
 
     setSundryCreditors(creditorList);
-    const totalCreditorBal = generalCreditorLedger ? generalCreditorLedger.currentBalance : creditorList.reduce((sum: number, p: any) => sum + Math.max(0, p.balance), 0);
+    const totalCreditorBal = creditorList.reduce((sum: number, p: any) => sum + p.balance, 0);
     setTotalCreditorLiability(totalCreditorBal);
   };
 

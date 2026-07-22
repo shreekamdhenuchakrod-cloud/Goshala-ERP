@@ -337,7 +337,7 @@ export class GoshalaDB {
     });
   }
 
-  // Calculates exact Year-Wise Ledger Balances for any specified Financial Year (100% Isolated)
+  // Calculates exact Year-Wise Ledger Balances for any specified Financial Year (100% Isolated & Immunity from compounding)
   static getLedgerBalancesForFy(fyId?: string): { [ledgerId: string]: { openingBalance: number; currentBalance: number } } {
     const targetFyId = fyId || this.getActiveFyId();
     const fys = this.getTable<FinancialYear>('fys');
@@ -350,8 +350,11 @@ export class GoshalaDB {
 
     const balances: { [ledgerId: string]: { openingBalance: number; currentBalance: number } } = {};
 
+    // Baseline inception values from SEED_LEDGERS
     ledgers.forEach(l => {
-      balances[l.id] = { openingBalance: l.openingBalance, currentBalance: l.openingBalance };
+      const seedItem = SEED_LEDGERS.find(s => s.id === l.id);
+      const initOp = seedItem ? (seedItem.openingBalance || 0) : 0;
+      balances[l.id] = { openingBalance: initOp, currentBalance: initOp };
     });
 
     sortedFys.forEach((fy, idx) => {
@@ -366,9 +369,9 @@ export class GoshalaDB {
       fyVouchers.forEach(v => {
         v.entries.forEach(entry => {
           if (!balances[entry.ledgerId]) {
-            const l = ledgers.find(item => item.id === entry.ledgerId);
-            if (!l) return;
-            balances[entry.ledgerId] = { openingBalance: l.openingBalance, currentBalance: l.openingBalance };
+            const seedItem = SEED_LEDGERS.find(s => s.id === entry.ledgerId);
+            const initOp = seedItem ? (seedItem.openingBalance || 0) : 0;
+            balances[entry.ledgerId] = { openingBalance: initOp, currentBalance: initOp };
           }
           const l = ledgers.find(item => item.id === entry.ledgerId);
           if (!l) return;
@@ -414,17 +417,30 @@ export class GoshalaDB {
   // Recalculates ledger accounts from all POSTED vouchers for active FY
   static recalculateLedgers() {
     const activeFyId = this.getActiveFyId();
-    const fyBalances = this.getLedgerBalancesForFy(activeFyId);
     const ledgers = this.getTable<Ledger>('ledgers');
+
+    // Restore master baseline opening balances from seed if corrupted
+    let dirty = false;
+    ledgers.forEach(l => {
+      const seedItem = SEED_LEDGERS.find(s => s.id === l.id);
+      if (seedItem && l.openingBalance !== seedItem.openingBalance) {
+        l.openingBalance = seedItem.openingBalance || 0;
+        dirty = true;
+      }
+    });
+    if (dirty) {
+      setStorageItem('goshala_erp_ledgers', ledgers);
+    }
+
+    const fyBalances = this.getLedgerBalancesForFy(activeFyId);
     const bankAccounts = this.getTable<BankAccount>('bank_accounts');
     const costCenters = this.getTable<CostCenter>('cost_centers');
     const vouchers = this.getTable<Voucher>('vouchers');
     const activeFyObj = this.getActiveFy();
 
-    // Apply calculated FY balances to ledgers
+    // Apply calculated FY balances to ledgers (DO NOT MUTATE BASELINE OPENING BALANCE)
     ledgers.forEach(l => {
       if (fyBalances[l.id]) {
-        l.openingBalance = fyBalances[l.id].openingBalance;
         l.activeFyOpeningBalance = fyBalances[l.id].openingBalance;
         l.currentBalance = fyBalances[l.id].currentBalance;
       }
