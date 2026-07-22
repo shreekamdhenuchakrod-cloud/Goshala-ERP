@@ -229,9 +229,18 @@ export const Dashboard: React.FC = () => {
     const todayStr = new Date().toISOString().split('T')[0];
     const configTable = GoshalaDB.getTable<any>('config')[0];
     const activeFyId = configTable?.activeFyId || 'fy-2025-26';
+    const fys = GoshalaDB.getTable<any>('fys');
+    const activeFyObj = fys.find(f => f.id === activeFyId);
+
+    const isMatchFy = (v: Voucher) => {
+      if (v.fyId && v.fyId === activeFyId) return true;
+      if (activeFyObj && v.date >= activeFyObj.startDate && v.date <= activeFyObj.endDate) return true;
+      if (!v.fyId && activeFyId === 'fy-2025-26' && (v.date <= '2026-03-31' || !v.date)) return true;
+      return false;
+    };
 
     // Today's Vouchers posted
-    const todayVouchers = vouchers.filter(v => v.date === todayStr && v.status === 'POSTED' && (v.fyId === activeFyId || !v.fyId));
+    const todayVouchers = vouchers.filter(v => v.date === todayStr && v.status === 'POSTED' && isMatchFy(v));
     let incToday = 0;
     let expToday = 0;
 
@@ -247,7 +256,7 @@ export const Dashboard: React.FC = () => {
 
     // Sum all Income payments received in current year
     let totalIncomesVal = 0;
-    vouchers.filter(v => v.status === 'POSTED' && (v.fyId === activeFyId || !v.fyId)).forEach(v => {
+    vouchers.filter(v => v.status === 'POSTED' && isMatchFy(v)).forEach(v => {
       v.entries.forEach(e => {
         const led = ledgers.find(l => l.id === e.ledgerId);
         if (led && led.type === 'INCOME') totalIncomesVal += e.amount;
@@ -281,7 +290,7 @@ export const Dashboard: React.FC = () => {
     const months = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
     const incExpData = months.map(m => ({ name: m, Income: 0, Expense: 0 }));
 
-    vouchers.filter(v => v.status === 'POSTED' && (v.fyId === activeFyId || !v.fyId)).forEach(v => {
+    vouchers.filter(v => v.status === 'POSTED' && isMatchFy(v)).forEach(v => {
       const date = new Date(v.date);
       const mIdx = (date.getMonth() + 9) % 12; // Start FY from April
       
@@ -297,7 +306,7 @@ export const Dashboard: React.FC = () => {
     setChartsData(incExpData);
 
     // Recent vouchers list (only for active FY)
-    const currentFyVouchers = vouchers.filter(v => v.fyId === activeFyId || !v.fyId);
+    const currentFyVouchers = vouchers.filter(v => isMatchFy(v));
     setRecentVouchers(currentFyVouchers.slice(-5).reverse());
   };
 

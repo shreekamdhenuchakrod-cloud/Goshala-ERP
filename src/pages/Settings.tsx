@@ -3,7 +3,7 @@ import { GoshalaDB } from '../db/db';
 import { ERPConfig, Ledger, CostCenter, LedgerGroup, Voucher, CRMContact } from '../db/schema';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
-import { Save, Download, UploadCloud, RotateCcw, Check, Trash, Plus, Edit3, UserCheck, Search, Folder, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
+import { Save, Download, UploadCloud, RotateCcw, Check, Trash, Plus, Edit3, UserCheck, Search, Folder, FolderOpen, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 
 interface SamitiMember {
   id: string;
@@ -17,7 +17,7 @@ interface SamitiMember {
 
 export const Settings: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   
   const [activeTab, setActiveTab] = useState<'org' | 'acct_prefs' | 'tax' | 'bank' | 'print' | 'ledgers' | 'cost_centers' | 'fys' | 'pay_modes' | 'security' | 'danger_zone' | 'members' | 'parties'>('org');
 
@@ -1056,16 +1056,7 @@ export const Settings: React.FC = () => {
                     />
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label>Default GST / Tax Rate (%)</label>
-                    <input
-                      type="number"
-                      value={config.taxRate || 5}
-                      onChange={(e) => setConfig({ ...config, taxRate: Number(e.target.value) })}
-                      placeholder="5"
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
-                    />
-                  </div>
+
 
                   <div className="space-y-1.5">
                     <label>Default Financial Year</label>
@@ -1172,15 +1163,7 @@ export const Settings: React.FC = () => {
                           className="w-full px-3 py-2 border rounded-xl font-normal font-mono"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <label>Default GST Rate (%)</label>
-                        <input
-                          type="number"
-                          value={config.taxRate}
-                          onChange={(e) => setConfig({ ...config, taxRate: Number(e.target.value) })}
-                          className="w-full px-3 py-2 border rounded-xl font-normal"
-                        />
-                      </div>
+
                     </div>
                   </div>
                 </div>
@@ -2212,28 +2195,50 @@ export const Settings: React.FC = () => {
                 </div>
               </div>
 
-              {/* blank resets */}
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-red-50 dark:border-red-950/20 shadow-sm space-y-4">
-                <h3 className="font-extrabold text-base text-red-550 dark:text-red-400">System Database Wipe Triggers</h3>
+              {/* Danger Zone / खतरा क्षेत्र */}
+              <div className="bg-red-50/60 dark:bg-red-950/30 p-6 rounded-3xl border-2 border-red-500/40 shadow-md space-y-4">
+                <div className="flex items-center space-x-2 text-red-650 dark:text-red-400">
+                  <AlertTriangle className="w-5 h-5 text-red-600 animate-pulse" />
+                  <h3 className="font-black text-base uppercase tracking-wider">
+                    {language === 'hi' ? '🚨 Danger Zone (खतरा क्षेत्र - रीसेट विकल्प)' : '🚨 Danger Zone (System Reset)'}
+                  </h3>
+                </div>
+                <p className="text-xs text-red-700 dark:text-red-300 font-semibold leading-relaxed">
+                  {language === 'hi'
+                    ? 'चेतावनी: नीचे दिए गए विकल्पों का उपयोग केवल आपात स्थिति में करें। डेटा रीसेट करने से पहले हमेशा ऊपर दिए गए बटन से बैकअप फ़ाइल डाउनलोड कर लें।'
+                    : 'Warning: Use the options below with extreme caution. Always export a local backup file before executing any database wipe actions.'}
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-bold text-slate-500">
-                  <div className="p-4 bg-red-50/30 dark:bg-red-950/10 rounded-2xl border space-y-2">
-                    <h4 className="text-red-650 font-extrabold">Factory Database Reset</h4>
-                    <p className="text-[10px] text-slate-400 font-normal leading-relaxed">Clears all custom additions, transactions, and logs. Restores the database to default baseline seed records.</p>
+                  <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-red-200 dark:border-red-900/50 shadow-sm space-y-3">
+                    <div className="space-y-1">
+                      <h4 className="text-red-650 font-extrabold text-sm flex items-center space-x-1">
+                        <span>Factory Database Reset</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-normal leading-relaxed">
+                        Clears custom transaction logs & user additions. Restores baseline historical CA records and resets Security PIN.
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => requirePin(handleResetDatabase)}
-                      className="px-4 py-2 bg-red-650 hover:bg-red-800 text-white rounded-xl text-center shadow font-bold text-xs"
+                      className="w-full py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-xl text-center shadow-md font-bold text-xs transition"
                     >
-                      Re-seed Database
+                      Re-seed Baseline Database
                     </button>
                   </div>
-                  <div className="p-4 bg-saffron-50/20 dark:bg-saffron-950/10 rounded-2xl border space-y-2">
-                    <h4 className="text-saffron-700 font-extrabold">Wipe All Data (खाता खाली करें)</h4>
-                    <p className="text-[10px] text-slate-400 font-normal leading-relaxed">Wipes all receipt, payment, and contra vouchers. Resets accounts to a completely blank slate with zero transactions.</p>
+                  <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-saffron-300 dark:border-saffron-900/50 shadow-sm space-y-3">
+                    <div className="space-y-1">
+                      <h4 className="text-saffron-700 dark:text-saffron-400 font-extrabold text-sm">
+                        Clear Vouchers & Start Clean (खाता खाली करें)
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-normal leading-relaxed">
+                        Wipes receipt, payment, and contra vouchers to give you a 100% clean ledger with zero transactions.
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => requirePin(handleClearAllTransactions)}
-                      className="px-4 py-2 bg-saffron-600 hover:bg-saffron-700 text-white rounded-xl text-center shadow font-bold text-xs"
+                      className="w-full py-2.5 bg-saffron-600 hover:bg-saffron-700 active:scale-95 text-white rounded-xl text-center shadow-md font-bold text-xs transition"
                     >
                       Clear Vouchers & Start Clean
                     </button>

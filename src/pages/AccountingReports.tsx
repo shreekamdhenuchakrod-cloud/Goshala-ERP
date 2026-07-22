@@ -23,8 +23,18 @@ export const AccountingReports: React.FC = () => {
   useEffect(() => {
     const conf = GoshalaDB.getTable<any>('config')[0];
     const activeFyId = conf?.activeFyId || 'fy-2025-26';
+    const fys = GoshalaDB.getTable<any>('fys');
+    const activeFyObj = fys.find(f => f.id === activeFyId);
     
-    setVouchers(GoshalaDB.getTable<Voucher>('vouchers').filter(v => v.status === 'POSTED' && (v.fyId === activeFyId || !v.fyId)));
+    const isMatchFy = (v: Voucher) => {
+      if (v.status !== 'POSTED') return false;
+      if (v.fyId && v.fyId === activeFyId) return true;
+      if (activeFyObj && v.date >= activeFyObj.startDate && v.date <= activeFyObj.endDate) return true;
+      if (!v.fyId && activeFyId === 'fy-2025-26' && (v.date <= '2026-03-31' || !v.date)) return true;
+      return false;
+    };
+
+    setVouchers(GoshalaDB.getTable<Voucher>('vouchers').filter(isMatchFy));
     setLedgers(GoshalaDB.getTable<Ledger>('ledgers'));
     setDonations(GoshalaDB.getTable<Donation>('donations'));
     setGrants(GoshalaDB.getTable<GovtGrant>('grants'));

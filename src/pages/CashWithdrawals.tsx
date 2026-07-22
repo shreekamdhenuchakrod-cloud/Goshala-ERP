@@ -35,11 +35,23 @@ export const CashWithdrawals: React.FC = () => {
     }));
     setBankAccounts(mappedBanks);
     
-    // Get all vouchers that affect Cash or Bank Ledgers
+    // Get all vouchers that affect Cash or Bank Ledgers for the active Financial Year
     const cashBankIds = ledgers.filter(l => l.groupId === 'g-current-assets' && l.id !== 'l-tds-receivable').map(l => l.id);
-    const vouchers = GoshalaDB.getTable<Voucher>('vouchers').filter(v => 
-      v.status === 'POSTED' && v.entries.some(e => cashBankIds.includes(e.ledgerId))
-    );
+    const conf = GoshalaDB.getTable<any>('config')[0];
+    const activeFyId = conf?.activeFyId || 'fy-2025-26';
+    const fys = GoshalaDB.getTable<any>('fys');
+    const activeFy = fys.find(f => f.id === activeFyId);
+
+    const vouchers = GoshalaDB.getTable<Voucher>('vouchers').filter(v => {
+      if (v.status !== 'POSTED') return false;
+      if (!v.entries.some(e => cashBankIds.includes(e.ledgerId))) return false;
+
+      // FY Matching: match by fyId OR date falling within active FY range
+      if (v.fyId && v.fyId === activeFyId) return true;
+      if (activeFy && v.date >= activeFy.startDate && v.date <= activeFy.endDate) return true;
+      if (!v.fyId && activeFyId === 'fy-2025-26' && v.date <= '2026-03-31') return true;
+      return false;
+    });
     setCashVouchers(vouchers.reverse());
   };
 
