@@ -46,6 +46,7 @@ export interface Ledger {
   type: AccountType;
   openingBalance: number;
   currentBalance: number;
+  activeFyOpeningBalance?: number; // Dynamic opening balance calculated for the active financial year
   isSystem?: boolean; // System ledgers like Cash, Bank, Fodder Stock, Sales, etc.
 }
 

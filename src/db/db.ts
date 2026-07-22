@@ -271,10 +271,19 @@ export class GoshalaDB {
     const costCenters = this.getTable<CostCenter>('cost_centers');
     const bankAccounts = this.getTable<BankAccount>('bank_accounts');
     const vouchers = this.getTable<Voucher>('vouchers');
+    const fys = this.getTable<any>('fys');
+    const config = this.getTable<any>('config')[0];
 
-    // Reset balances to opening balance
+    const activeFyId = config?.activeFyId || 'fy-2025-26';
+    
+    // Sort FYs by start date to know chronological order
+    const sortedFys = [...fys].sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const activeFyIndex = sortedFys.findIndex(f => f.id === activeFyId);
+
+    // Reset balances to absolute opening balance
     ledgers.forEach(l => {
       l.currentBalance = l.openingBalance;
+      l.activeFyOpeningBalance = l.openingBalance;
     });
 
     costCenters.forEach(cc => {
@@ -285,8 +294,16 @@ export class GoshalaDB {
     vouchers.forEach(v => {
       if (v.status !== 'POSTED') return;
 
-      // Update Cost Centers
-      if (v.costCenterId) {
+      const voucherFyIndex = sortedFys.findIndex(f => f.id === (v.fyId || 'fy-2025-26'));
+      
+      // If voucher belongs to a future FY, ignore it completely for current FY balance calculation
+      if (voucherFyIndex > activeFyIndex) return;
+
+      const isCurrentFy = voucherFyIndex === activeFyIndex;
+      const isPreviousFy = voucherFyIndex < activeFyIndex;
+
+      // Update Cost Centers (only for current FY)
+      if (isCurrentFy && v.costCenterId) {
         const cc = costCenters.find(c => c.id === v.costCenterId);
         if (cc) {
           // Add debit amounts if it is an expense voucher
@@ -302,13 +319,22 @@ export class GoshalaDB {
         const ledger = ledgers.find(l => l.id === entry.ledgerId);
         if (!ledger) return;
 
+        // CRITICAL ACCOUNTING RULE:
+        // Incomes and Expenses DO NOT carry forward to the next year.
+        // We only carry forward Assets, Liabilities, and Capital (Real Accounts).
+        if (isPreviousFy && (ledger.type === 'INCOME' || ledger.type === 'EXPENSE')) {
+          return;
+        }
+
         const isDebit = entry.isDebit;
         const amount = entry.amount;
 
         if (ledger.type === 'ASSET' || ledger.type === 'EXPENSE') {
           ledger.currentBalance += isDebit ? amount : -amount;
+          if (isPreviousFy) ledger.activeFyOpeningBalance! += isDebit ? amount : -amount;
         } else {
           ledger.currentBalance += isDebit ? -amount : amount;
+          if (isPreviousFy) ledger.activeFyOpeningBalance! += isDebit ? -amount : amount;
         }
       });
     });

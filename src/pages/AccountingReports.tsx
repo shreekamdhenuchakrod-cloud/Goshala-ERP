@@ -21,13 +21,15 @@ export const AccountingReports: React.FC = () => {
   const [targetLedgerId, setTargetLedgerId] = useState<string>('l-cash');
 
   useEffect(() => {
-    setVouchers(GoshalaDB.getTable<Voucher>('vouchers').filter(v => v.status === 'POSTED'));
+    const conf = GoshalaDB.getTable<any>('config')[0];
+    const activeFyId = conf?.activeFyId || 'fy-2025-26';
+    
+    setVouchers(GoshalaDB.getTable<Voucher>('vouchers').filter(v => v.status === 'POSTED' && (v.fyId === activeFyId || !v.fyId)));
     setLedgers(GoshalaDB.getTable<Ledger>('ledgers'));
     setDonations(GoshalaDB.getTable<Donation>('donations'));
     setGrants(GoshalaDB.getTable<GovtGrant>('grants'));
     setCows(GoshalaDB.getTable<Cow>('cows'));
     
-    const conf = GoshalaDB.getTable<any>('config')[0];
     if (conf) setConfig(conf);
   }, []);
 
@@ -70,7 +72,7 @@ export const AccountingReports: React.FC = () => {
   };
 
   const getLedgerStatement = (ledgerId: string) => {
-    let runningBalance = ledgers.find(l => l.id === ledgerId)?.openingBalance || 0;
+    let runningBalance = ledgers.find(l => l.id === ledgerId)?.activeFyOpeningBalance || 0;
     const ledger = ledgers.find(l => l.id === ledgerId);
     const isDebitType = ledger ? (ledger.type === 'ASSET' || ledger.type === 'EXPENSE') : true;
 
@@ -139,7 +141,7 @@ export const AccountingReports: React.FC = () => {
         name: l.name,
         code: l.code,
         type: l.type,
-        openingBalance: l.openingBalance || 0,
+        openingBalance: l.activeFyOpeningBalance || 0,
         entriesCount,
         totalDebits,
         totalCredits,

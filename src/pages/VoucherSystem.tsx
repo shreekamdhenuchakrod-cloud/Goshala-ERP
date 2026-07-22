@@ -388,7 +388,7 @@ export const VoucherSystem: React.FC = () => {
     if (editingVoucher) {
       const vToSave: Voucher = {
         ...editingVoucher,
-        fyId: editingVoucher.fyId || 'fy-2025-26',
+        fyId: editingVoucher.fyId || config.activeFyId || 'fy-2025-26',
         date: vDate,
         voucherType: vType,
         costCenterId: vCostCenter,
@@ -403,7 +403,7 @@ export const VoucherSystem: React.FC = () => {
     } else {
       const vToSave: Voucher = {
         id: `v-${Date.now()}`,
-        fyId: 'fy-2025-26',
+        fyId: config.activeFyId || 'fy-2025-26',
         voucherNumber: '', // auto generated
         voucherType: vType,
         date: vDate,
@@ -570,6 +570,10 @@ export const VoucherSystem: React.FC = () => {
 
   // Multi-filter transaction records
   const filteredVouchers = vouchers.filter(v => {
+    // 0. Active Financial Year Filter
+    const matchesFy = v.fyId === (config.activeFyId || 'fy-2025-26');
+    if (!matchesFy) return false;
+
     // 1. Search Query
     const query = searchTerm.toLowerCase();
     const matchesSearch =

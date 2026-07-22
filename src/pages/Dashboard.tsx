@@ -227,9 +227,11 @@ export const Dashboard: React.FC = () => {
       .reduce((sum, l) => sum + (l.currentBalance || 0), 0);
 
     const todayStr = new Date().toISOString().split('T')[0];
+    const configTable = GoshalaDB.getTable<any>('config')[0];
+    const activeFyId = configTable?.activeFyId || 'fy-2025-26';
 
     // Today's Vouchers posted
-    const todayVouchers = vouchers.filter(v => v.date === todayStr && v.status === 'POSTED');
+    const todayVouchers = vouchers.filter(v => v.date === todayStr && v.status === 'POSTED' && (v.fyId === activeFyId || !v.fyId));
     let incToday = 0;
     let expToday = 0;
 
@@ -245,7 +247,7 @@ export const Dashboard: React.FC = () => {
 
     // Sum all Income payments received in current year
     let totalIncomesVal = 0;
-    vouchers.filter(v => v.status === 'POSTED').forEach(v => {
+    vouchers.filter(v => v.status === 'POSTED' && (v.fyId === activeFyId || !v.fyId)).forEach(v => {
       v.entries.forEach(e => {
         const led = ledgers.find(l => l.id === e.ledgerId);
         if (led && led.type === 'INCOME') totalIncomesVal += e.amount;
@@ -279,7 +281,7 @@ export const Dashboard: React.FC = () => {
     const months = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
     const incExpData = months.map(m => ({ name: m, Income: 0, Expense: 0 }));
 
-    vouchers.filter(v => v.status === 'POSTED').forEach(v => {
+    vouchers.filter(v => v.status === 'POSTED' && (v.fyId === activeFyId || !v.fyId)).forEach(v => {
       const date = new Date(v.date);
       const mIdx = (date.getMonth() + 9) % 12; // Start FY from April
       
@@ -294,8 +296,9 @@ export const Dashboard: React.FC = () => {
 
     setChartsData(incExpData);
 
-    // Recent vouchers list
-    setRecentVouchers(vouchers.slice(-5).reverse());
+    // Recent vouchers list (only for active FY)
+    const currentFyVouchers = vouchers.filter(v => v.fyId === activeFyId || !v.fyId);
+    setRecentVouchers(currentFyVouchers.slice(-5).reverse());
   };
 
   useEffect(() => {
