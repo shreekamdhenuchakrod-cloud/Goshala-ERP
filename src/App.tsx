@@ -97,6 +97,7 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
               <label className="text-[10px] text-slate-400 font-bold uppercase block">Create 4-Digit Security PIN</label>
               <input
                 type="password"
+                autoComplete="new-password"
                 required
                 maxLength={4}
                 value={pin}
@@ -110,6 +111,7 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
               <label className="text-[10px] text-slate-400 font-bold uppercase block">Confirm Security PIN</label>
               <input
                 type="password"
+                autoComplete="new-password"
                 required
                 maxLength={4}
                 value={confirmPin}
@@ -128,6 +130,7 @@ const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
             <p className="text-xs text-slate-400 font-semibold">Enter your 4-digit security PIN to unlock</p>
             <input
               type="password"
+              autoComplete="new-password"
               required
               maxLength={4}
               value={pin}

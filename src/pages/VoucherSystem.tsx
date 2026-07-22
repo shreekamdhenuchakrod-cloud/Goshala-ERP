@@ -1666,6 +1666,7 @@ export const VoucherSystem: React.FC = () => {
             <p className="text-slate-500 text-xs text-center">Enter your 4-digit PIN to authenticate this operation.</p>
             <input
               type="password"
+              autoComplete="new-password"
               maxLength={4}
               placeholder="••••"
               value={pinInput}

@@ -2145,6 +2145,7 @@ export const Settings: React.FC = () => {
                     <label>{t('current_pin_label')}</label>
                     <input
                       type="password"
+                      autoComplete="new-password"
                       maxLength={4}
                       placeholder="••••"
                       value={currentPinText}
@@ -2156,6 +2157,7 @@ export const Settings: React.FC = () => {
                     <label>{t('new_pin_label')}</label>
                     <input
                       type="password"
+                      autoComplete="new-password"
                       maxLength={4}
                       placeholder="••••"
                       value={newPinText}
@@ -2252,6 +2254,7 @@ export const Settings: React.FC = () => {
             <p className="text-slate-500 text-xs text-center">Enter your 4-digit PIN to authenticate this operation.</p>
             <input
               type="password"
+              autoComplete="new-password"
               maxLength={4}
               placeholder="••••"
               value={pinInput}
