@@ -350,10 +350,9 @@ export class GoshalaDB {
 
     const balances: { [ledgerId: string]: { openingBalance: number; currentBalance: number } } = {};
 
-    // Baseline inception values from SEED_LEDGERS
+    // Baseline inception values from stored ledgers table
     ledgers.forEach(l => {
-      const seedItem = SEED_LEDGERS.find(s => s.id === l.id);
-      const initOp = seedItem ? (seedItem.openingBalance || 0) : 0;
+      const initOp = l.openingBalance || 0;
       balances[l.id] = { openingBalance: initOp, currentBalance: initOp };
     });
 
@@ -369,8 +368,8 @@ export class GoshalaDB {
       fyVouchers.forEach(v => {
         v.entries.forEach(entry => {
           if (!balances[entry.ledgerId]) {
-            const seedItem = SEED_LEDGERS.find(s => s.id === entry.ledgerId);
-            const initOp = seedItem ? (seedItem.openingBalance || 0) : 0;
+            const l = ledgers.find(item => item.id === entry.ledgerId);
+            const initOp = l ? (l.openingBalance || 0) : 0;
             balances[entry.ledgerId] = { openingBalance: initOp, currentBalance: initOp };
           }
           const l = ledgers.find(item => item.id === entry.ledgerId);
@@ -418,20 +417,6 @@ export class GoshalaDB {
   static recalculateLedgers() {
     const activeFyId = this.getActiveFyId();
     const ledgers = this.getTable<Ledger>('ledgers');
-
-    // Restore master baseline opening balances from seed if corrupted
-    let dirty = false;
-    ledgers.forEach(l => {
-      const seedItem = SEED_LEDGERS.find(s => s.id === l.id);
-      if (seedItem && l.openingBalance !== seedItem.openingBalance) {
-        l.openingBalance = seedItem.openingBalance || 0;
-        dirty = true;
-      }
-    });
-    if (dirty) {
-      setStorageItem('goshala_erp_ledgers', ledgers);
-    }
-
     const fyBalances = this.getLedgerBalancesForFy(activeFyId);
     const bankAccounts = this.getTable<BankAccount>('bank_accounts');
     const costCenters = this.getTable<CostCenter>('cost_centers');

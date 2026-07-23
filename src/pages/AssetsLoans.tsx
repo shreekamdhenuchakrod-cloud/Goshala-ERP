@@ -64,23 +64,48 @@ export const AssetsLoans: React.FC = () => {
   }, []);
 
   const loadData = () => {
+    const activeFyObj = GoshalaDB.getActiveFy();
+    const activeFyId = activeFyObj.id;
+    const fyBalances = GoshalaDB.getLedgerBalancesForFy(activeFyId);
     const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
-    setFixedAssets(ledgers.filter(l => l.groupId === 'g-fixed-assets'));
     
+    setFixedAssets(ledgers.filter(l => l.groupId === 'g-fixed-assets').map(l => ({
+      ...l,
+      currentBalance: fyBalances[l.id]?.currentBalance ?? l.currentBalance
+    })));
+
     const allLoans = GoshalaDB.getTable<Loan>('loans');
-    setLoans(allLoans);
+    const fyLoans = allLoans.map(loan => {
+      let matchingLedger = ledgers.find(l => l.id === loan.id || l.id === `l-loan-${loan.id}` || l.name.toLowerCase() === loan.partyName.toLowerCase());
+      if (!matchingLedger) {
+        matchingLedger = ledgers.find(l => (l.name.toLowerCase().includes(loan.partyName.toLowerCase()) || loan.partyName.toLowerCase().includes(l.name.toLowerCase())) && !l.name.toLowerCase().includes('building'));
+      }
+      const outstanding = matchingLedger && fyBalances[matchingLedger.id] !== undefined
+        ? Math.max(0, fyBalances[matchingLedger.id].currentBalance)
+        : loan.outstandingAmount;
+      return {
+        ...loan,
+        outstandingAmount: outstanding
+      };
+    });
+    setLoans(fyLoans);
 
     const allVouchers = GoshalaDB.getTable<Voucher>('vouchers');
-    const loanRepays = allVouchers.filter(v => v.voucherType === 'LOAN_REPAYMENT' || v.narration.toLowerCase().includes('loan repayment') || v.narration.toLowerCase().includes('ऋण'));
-    setRepayVouchers(loanRepays.reverse());
 
-    // Calculate Sundry Creditors (Vendor Liabilities) - STRICTLY ONLY BALANCE > 0
+    // ONLY repayment vouchers in the active FY for the log table!
+    const loanRepaysInActiveFy = allVouchers.filter(v => 
+      v.status === 'POSTED' &&
+      (v.voucherType === 'LOAN_REPAYMENT' || v.narration?.toLowerCase().includes('loan repayment') || v.narration?.toLowerCase().includes('ऋण')) &&
+      v.date >= activeFyObj.startDate && v.date <= activeFyObj.endDate
+    );
+    setRepayVouchers(loanRepaysInActiveFy.reverse());
+
+    // Calculate Sundry Creditors - STRICTLY UP TO ACTIVE FY END DATE
     const contacts = GoshalaDB.getTable<any>('contacts');
-    const postedVouchers = allVouchers.filter(v => v.status === 'POSTED');
-    const generalCreditorLedger = ledgers.find(l => l.id === 'l-liab-creditors');
+    const postedVouchersUpToFy = allVouchers.filter(v => v.status === 'POSTED' && v.date <= activeFyObj.endDate);
 
     const creditorList = contacts.map((p: any) => {
-      const pVouchers = postedVouchers.filter(v => v.narration?.toLowerCase().includes(p.name.toLowerCase()));
+      const pVouchers = postedVouchersUpToFy.filter(v => v.narration?.toLowerCase().includes(p.name.toLowerCase()));
       const creditBillsSum = pVouchers
         .filter(v => v.entries.some(e => e.ledgerId === 'l-liab-creditors' && !e.isDebit))
         .reduce((s, v) => s + (v.entries.find(e => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);

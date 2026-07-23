@@ -211,6 +211,16 @@ export const Dashboard: React.FC = () => {
     }
 
     setAiSuggestions(suggestions);
+    loadDashboardData();
+
+    const handleFyChanged = () => {
+      loadDashboardData();
+    };
+
+    window.addEventListener('goshala_fy_changed', handleFyChanged);
+    return () => {
+      window.removeEventListener('goshala_fy_changed', handleFyChanged);
+    };
   }, []);
 
   const loadDashboardData = () => {
