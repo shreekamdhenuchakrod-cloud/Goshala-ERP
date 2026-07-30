@@ -346,30 +346,40 @@ export const Settings: React.FC = () => {
 
   // Financial Years Handlers
   const handleAddFy = () => {
-    if (!newFyName || !newFyName.match(/^\d{4}-\d{2}$/)) {
-      alert('Please use YYYY-YY format, e.g. 2026-27');
+    if (!newFyName) return;
+    if (!newFyName.match(/^\d{4}-\d{2,4}$/)) {
+      alert('कृपया सही वित्तीय वर्ष नाम लिखें, उदाहरण: 2026-27');
       return;
     }
     const yearParts = newFyName.split('-');
     const startYr = parseInt(yearParts[0]);
-    const endYr = 2000 + parseInt(yearParts[1]);
+    let endYrVal = parseInt(yearParts[1]);
+    if (endYrVal < 100) endYrVal += 2000;
     const newFyId = `fy-${newFyName}`;
     const allFys = GoshalaDB.getTable<any>('fys');
     if (allFys.some(f => f.id === newFyId)) {
-      alert('Financial year already exists!');
+      alert('यह वित्तीय वर्ष पहले से मौजूद है!');
       return;
     }
+
+    const startDate = `${startYr}-04-01`;
+    const endDate = `${endYrVal}-03-31`;
+
     allFys.push({
       id: newFyId,
       name: newFyName,
-      startDate: `${startYr}-04-01`,
-      endDate: `${endYr}-03-31`,
+      startDate,
+      endDate,
       status: 'ACTIVE'
     });
     GoshalaDB.saveTable('fys', allFys);
     setFys(allFys);
     setNewFyName('');
-    GoshalaDB.logAction(user.name, user.role, 'CREATE_FY', `Created financial year: ${newFyName}`);
+
+    // Recalculate ledgers so closing balances of previous FY become opening balances of new FY
+    GoshalaDB.recalculateLedgers();
+    GoshalaDB.logAction(user.name, user.role, 'CREATE_FY', `Created new financial year: ${newFyName}`);
+    alert(`✅ नया वित्तीय वर्ष (${newFyName}) सफलतापूर्वक जोड़ दिया गया है! इसमें पिछले वर्ष का क्लोजिंग बैलेंस ओपनिंग बैलेंस के रूप में आ गया है और कोई पुरानी प्रविष्टि (Vouchers) कॉपी नहीं हुई है।`);
   };
 
   const handleToggleFyStatus = (fyId: string, currentStatus: string) => {
@@ -377,32 +387,55 @@ export const Settings: React.FC = () => {
       const allFys = GoshalaDB.getTable<any>('fys');
       const target = allFys.find(f => f.id === fyId);
       if (!target) return;
-      
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // Block closing/deactivating current running FY before March 31st
+      if (currentStatus === 'ACTIVE' && todayStr < target.endDate && todayStr >= target.startDate) {
+        alert(`❌ क्लोज़ त्रुटि: चल रहे सक्रिय वित्तीय वर्ष (${target.name}) को 31 मार्च (${target.endDate}) के पहले क्लोज़ या डीएक्टिवेट नहीं किया जा सकता है!`);
+        return;
+      }
+
       const newStatus = currentStatus === 'ACTIVE' ? 'CLOSED' : 'ACTIVE';
       target.status = newStatus;
       GoshalaDB.saveTable('fys', allFys);
       setFys(allFys);
       GoshalaDB.logAction(user.name, user.role, 'TOGGLE_FY_STATUS', `Toggled Financial Year ${target.name} status to ${newStatus}`);
-      alert(`Financial Year status changed to ${newStatus}!`);
+      alert(`वित्तीय वर्ष स्थिति सफलतापूर्वक बदलकर ${newStatus} कर दी गई है!`);
     });
   };
 
-  const handleCloseFyAction = (fyId: string) => {
+  const handleDeleteFy = (fyId: string) => {
     requirePin(() => {
       const allFys = GoshalaDB.getTable<any>('fys');
       const target = allFys.find(f => f.id === fyId);
       if (!target) return;
-      
-      const nextFyNameText = prompt('Enter the name of the new Financial Year to carry forward balances (e.g. 2026-27):');
-      if (!nextFyNameText) return;
 
-      try {
-        GoshalaDB.closeFinancialYear(fyId, nextFyNameText, user);
-        loadData();
-        alert('Financial Year closed, retained earnings updated, and balances carried forward successfully!');
-      } catch (err: any) {
-        alert(err.message || 'Error closing financial year.');
+      const confirmMsg = `⚠️ चेतावनी: क्या आप निश्चित हैं कि आप वित्तीय वर्ष ${target.name} को हटाना चाहते हैं?\n\nध्यान दें: डिलीट करने पर केवल वित्तीय वर्ष ${target.name} (${target.startDate} से ${target.endDate}) की प्रविष्टियां (Vouchers) हटाई जाएंगी, अन्य किसी वित्तीय वर्ष की प्रविष्टि पर कोई प्रभाव नहीं पड़ेगा।`;
+
+      if (!window.confirm(confirmMsg)) return;
+
+      // Delete only vouchers belonging to this specific FY
+      const allVouchers = GoshalaDB.getTable<Voucher>('vouchers');
+      const remainingVouchers = allVouchers.filter(v => v.fyId !== fyId && (v.date < target.startDate || v.date > target.endDate));
+      GoshalaDB.saveTable('vouchers', remainingVouchers);
+
+      // Remove FY from fys table
+      const remainingFys = allFys.filter(f => f.id !== fyId);
+      GoshalaDB.saveTable('fys', remainingFys);
+
+      // If currently active FY was deleted, switch active FY to first available
+      const activeFyId = GoshalaDB.getActiveFyId();
+      if (activeFyId === fyId) {
+        const nextActive = remainingFys[0]?.id || 'fy-2025-26';
+        GoshalaDB.setActiveFyId(nextActive);
       }
+
+      GoshalaDB.recalculateLedgers();
+      setFys(remainingFys);
+      GoshalaDB.logAction(user.name, user.role, 'DELETE_FY', `Deleted financial year ${target.name} and its vouchers`);
+      alert(`✅ वित्तीय वर्ष ${target.name} और उसकी सभी प्रविष्टियां सफलतापूर्वक हटा दी गई हैं!`);
+      loadData();
     });
   };
 
@@ -1760,19 +1793,17 @@ export const Settings: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleToggleFyStatus(fy.id, fy.status)}
-                            className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-650 rounded font-bold text-[10px]"
+                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-650 rounded-lg font-bold text-[10px]"
                           >
                             {fy.status === 'ACTIVE' ? 'Close/Deactivate' : 'Reactivate'}
                           </button>
-                          {fy.status === 'ACTIVE' && (
-                            <button
-                              type="button"
-                              onClick={() => handleCloseFyAction(fy.id)}
-                              className="px-2 py-0.5 bg-red-50 hover:bg-red-100 text-red-500 rounded font-bold text-[10px]"
-                            >
-                              Final Close & Carry Forward
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFy(fy.id)}
+                            className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg font-bold text-[10px]"
+                          >
+                            Delete (हटाएं)
+                          </button>
                         </td>
                       </tr>
                     ))}
