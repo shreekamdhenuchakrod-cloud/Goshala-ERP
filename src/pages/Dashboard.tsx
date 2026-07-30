@@ -224,23 +224,27 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   const loadDashboardData = () => {
+    GoshalaDB.recalculateLedgers();
+
+    const configTable = GoshalaDB.getTable<any>('config')[0];
+    const activeFyId = configTable?.activeFyId || GoshalaDB.getActiveFyId();
+    const fys = GoshalaDB.getTable<any>('fys');
+    const activeFyObj = fys.find(f => f.id === activeFyId);
+    const fyBalances = GoshalaDB.getLedgerBalancesForFy(activeFyId);
+
     // Fetch tables
     const vouchers = GoshalaDB.getTable<Voucher>('vouchers');
     const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
     const loans = GoshalaDB.getTable<any>('loans');
 
-    const cashL = ledgers.find(l => l.id === 'l-cash')?.currentBalance || 0;
+    const cashL = fyBalances['l-cash']?.currentBalance ?? 0;
     
-    // Dynamic bank balance calculation across all bank ledgers
+    // Dynamic bank balance calculation across all bank ledgers for active FY
     const bankL = ledgers
       .filter(l => l.groupId === 'g-current-assets' && l.id !== 'l-cash' && l.id !== 'l-tds-receivable')
-      .reduce((sum, l) => sum + (l.currentBalance || 0), 0);
+      .reduce((sum, l) => sum + (fyBalances[l.id]?.currentBalance ?? 0), 0);
 
     const todayStr = new Date().toISOString().split('T')[0];
-    const configTable = GoshalaDB.getTable<any>('config')[0];
-    const activeFyId = configTable?.activeFyId || 'fy-2025-26';
-    const fys = GoshalaDB.getTable<any>('fys');
-    const activeFyObj = fys.find(f => f.id === activeFyId);
 
     const isMatchFy = (v: Voucher) => {
       if (v.fyId && v.fyId === activeFyId) return true;
@@ -277,14 +281,14 @@ export const Dashboard: React.FC = () => {
     let loanOutstanding = loans.reduce((sum: number, l: any) => sum + (l.outstandingAmount || 0), 0);
     if (loanOutstanding === 0) {
       loanOutstanding = ledgers
-        .filter(l => l.groupId === 'g-loans-liabilities' || l.groupId === 'g-secured-loans' || l.groupId === 'g-unsecured-loans')
-        .reduce((sum, l) => sum + (l.currentBalance || 0), 0);
+        .filter(l => l.groupId === 'g-loans-liab' || l.groupId === 'g-loans-liabilities' || l.groupId === 'g-secured-loans' || l.groupId === 'g-unsecured-loans')
+        .reduce((sum, l) => sum + (fyBalances[l.id]?.currentBalance ?? 0), 0);
     }
 
     // Fixed Assets valuation
     const fixedAssetsValuation = ledgers
       .filter(l => l.groupId === 'g-fixed-assets')
-      .reduce((sum, l) => sum + (l.currentBalance || 0), 0);
+      .reduce((sum, l) => sum + (fyBalances[l.id]?.currentBalance ?? 0), 0);
 
     setMetrics({
       todayIncome: incToday,
