@@ -115,22 +115,31 @@ export const AssetsLoans: React.FC = () => {
 
     const partyMap: { [key: string]: { id: string; name: string; phone: string; opening: number; credits: number; debits: number; count: number } } = {};
 
-    // 1. Seed contacts into partyMap
+    // 1. Seed contacts into partyMap (only vendor contacts or contacts with initial vendor opening balance)
     contacts.forEach(c => {
       const key = c.name.trim().toLowerCase();
-      partyMap[key] = {
-        id: c.id,
-        name: c.name.trim(),
-        phone: c.phone || '—',
-        opening: Number(c.outstandingBalance) || 0,
-        credits: 0,
-        debits: 0,
-        count: 0
-      };
+      if (c.type === 'VENDOR' || (c.outstandingBalance && c.outstandingBalance > 0)) {
+        partyMap[key] = {
+          id: c.id,
+          name: c.name.trim(),
+          phone: c.phone || '—',
+          opening: Number(c.outstandingBalance) || 0,
+          credits: 0,
+          debits: 0,
+          count: 0
+        };
+      }
     });
 
-    // 2. Scan all vouchers up to active FY end for creditor entries & party names
+    // 2. Scan all vouchers up to active FY end ONLY for entries touching l-liab-creditors or vendor ledgers
     postedVouchersUpToFy.forEach(v => {
+      // STRICT ACCOUNTING RULE:
+      // RECEIPT (Donations) and LOAN_REPAYMENT vouchers MUST NEVER be processed under Outstanding Creditors for Purchase!
+      if (v.voucherType === 'RECEIPT' || v.voucherType === 'LOAN_REPAYMENT') return;
+
+      const creditorEntries = v.entries.filter(e => e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor'));
+      if (creditorEntries.length === 0) return;
+
       let partyNameFromBrackets = '';
       const match = v.narration?.match(/\[(.*?)\]/);
       if (match && match[1]) {
@@ -145,63 +154,33 @@ export const AssetsLoans: React.FC = () => {
         }
       }
 
-      const creditorEntries = v.entries.filter(e => e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor'));
-      const hasCreditorEntry = creditorEntries.length > 0;
-      const voucherAmt = v.entries.reduce((max, e) => Math.max(max, e.amount), 0);
-      const narrationLower = (v.narration || '').toLowerCase();
-
-      const isExplicitPayment = (narrationLower.includes('paid') || narrationLower.includes('भुगतान') || narrationLower.includes('दिए'))
-        && !narrationLower.includes('उधारी') && !narrationLower.includes('bill');
-
-      if (key) {
-        if (!partyMap[key]) {
-          partyMap[key] = {
-            id: `c-dyn-${Date.now()}-${Math.random()}`,
-            name: partyNameFromBrackets || key.toUpperCase(),
-            phone: '—',
-            opening: 0,
-            credits: 0,
-            debits: 0,
-            count: 0
-          };
-        }
-
-        partyMap[key].count += 1;
-
-        if (hasCreditorEntry) {
-          creditorEntries.forEach(e => {
-            if (!e.isDebit) {
-              // CREDIT to l-liab-creditors = INCREASES VENDOR LIABILITY (DENDARI)
-              partyMap[key].credits += e.amount;
-            } else {
-              // DEBIT to l-liab-creditors = DECREASES VENDOR LIABILITY (PAYMENT MADE)
-              partyMap[key].debits += e.amount;
-            }
-          });
-        } else if (isExplicitPayment) {
-          partyMap[key].debits += voucherAmt;
-        } else {
-          partyMap[key].credits += voucherAmt;
-        }
-      } else if (hasCreditorEntry) {
-        const genKey = 'general creditors';
-        if (!partyMap[genKey]) {
-          partyMap[genKey] = {
-            id: 'c-general-creditors',
-            name: 'General Sundry Creditors (सामान्य लेनदार बकाया)',
-            phone: '—',
-            opening: 0,
-            credits: 0,
-            debits: 0,
-            count: 0
-          };
-        }
-        partyMap[genKey].count += 1;
-        creditorEntries.forEach(e => {
-          if (!e.isDebit) partyMap[genKey].credits += e.amount;
-          else partyMap[genKey].debits += e.amount;
-        });
+      if (!key) {
+        key = 'general creditors';
       }
+
+      if (!partyMap[key]) {
+        partyMap[key] = {
+          id: `c-dyn-${Date.now()}-${Math.random()}`,
+          name: partyNameFromBrackets || (key === 'general creditors' ? 'General Sundry Creditors (सामान्य लेनदार बकाया)' : key.toUpperCase()),
+          phone: '—',
+          opening: 0,
+          credits: 0,
+          debits: 0,
+          count: 0
+        };
+      }
+
+      partyMap[key].count += 1;
+
+      creditorEntries.forEach(e => {
+        if (!e.isDebit) {
+          // CREDIT to l-liab-creditors = Credit Purchase (Increases Vendor Liability)
+          partyMap[key].credits += e.amount;
+        } else {
+          // DEBIT to l-liab-creditors = Vendor Payment (Decreases Vendor Liability)
+          partyMap[key].debits += e.amount;
+        }
+      });
     });
 
     // 3. Compute net balance for each vendor/party

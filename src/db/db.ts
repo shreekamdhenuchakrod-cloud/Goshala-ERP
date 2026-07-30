@@ -362,8 +362,11 @@ export class GoshalaDB {
       const isTargetFy = idx === targetFyIndex || (targetFyIndex < 0 && fy.id === targetFyId);
       const isPastFy = idx < targetFyIndex;
 
-      // Match vouchers belonging to this FY strictly by date
-      const fyVouchers = vouchers.filter(v => v.date >= fy.startDate && v.date <= fy.endDate);
+      // Match vouchers belonging to this FY strictly by fyId or date range
+      const fyVouchers = vouchers.filter(v => 
+        (v.fyId && v.fyId === fy.id) ||
+        (v.date >= fy.startDate && v.date <= fy.endDate)
+      );
 
       fyVouchers.forEach(v => {
         v.entries.forEach(entry => {
@@ -452,6 +455,10 @@ export class GoshalaDB {
         ba.currentBalance = ledger.currentBalance;
       }
     });
+
+    // Save updated current balances for ledgers and bank accounts to LocalStorage
+    this.saveTable('ledgers', ledgers);
+    this.saveTable('bank_accounts', bankAccounts);
 
     // Sync Loans table outstanding amounts from accounting ledger postings
     const loans = this.getTable<Loan>('loans');
