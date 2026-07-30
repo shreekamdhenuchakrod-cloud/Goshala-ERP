@@ -105,7 +105,10 @@ export const SEED_COWS: Cow[] = [];
 
 export const SEED_CONTACTS: CRMContact[] = [
   { id: 'c-donor-1', type: 'DONOR', name: 'Rajesh Kumar Singhal', phone: '9876543210', email: 'rajesh@gmail.com', outstandingBalance: 0, communicationHistory: [] },
-  { id: 'c-vend-feed', type: 'VENDOR', name: 'Bharat Kisan Suppliers', phone: '9009988776', email: 'sales@bharatfodder.com', outstandingBalance: 136450, communicationHistory: [] }
+  { id: 'c-vend-feed', type: 'VENDOR', name: 'Bharat Kisan Suppliers', phone: '9009988776', email: 'sales@bharatfodder.com', outstandingBalance: 0, communicationHistory: [] },
+  { id: 'c-vend-parvat', type: 'VENDOR', name: 'Parvat Singh', phone: '—', email: '', outstandingBalance: 0, communicationHistory: [] },
+  { id: 'c-vend-dharmendra', type: 'VENDOR', name: 'Dharmendra Mewada', phone: '—', email: '', outstandingBalance: 0, communicationHistory: [] },
+  { id: 'c-vend-suner', type: 'VENDOR', name: 'Suner Singh', phone: '—', email: '', outstandingBalance: 0, communicationHistory: [] }
 ];
 
 export const SEED_INVENTORY: InventoryItem[] = [];

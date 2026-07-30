@@ -99,10 +99,10 @@ export class GoshalaDB {
   }
 
   static init() {
-    const seedVersion = 'v16';
+    const seedVersion = 'v17';
     const seeded = localStorage.getItem('goshala_erp_seeded');
     if (!seeded || seeded !== seedVersion) {
-      console.log('Initializing Goshala ERP baseline version:', seedVersion);
+      console.log('Migrating to Goshala ERP baseline version:', seedVersion);
       
       const cleanLedgers = SEED_LEDGERS.map(l => ({
         ...l,
@@ -115,29 +115,56 @@ export class GoshalaDB {
         currentBalance: ba.currentBalance || 0
       }));
 
-      // On fresh install / version bump: wipe all transaction tables, keep config & pin
-      const savedConfig = localStorage.getItem('goshala_erp_config');
-      const savedPin = localStorage.getItem('goshala_erp_app_pin');
-
-      // Clear all ERP tables
-      const allKeys = Object.keys(localStorage).filter(k => k.startsWith('goshala_erp_') && k !== 'goshala_erp_config' && k !== 'goshala_erp_app_pin');
-      allKeys.forEach(k => localStorage.removeItem(k));
-
-      // Restore config & pin
-      if (savedConfig) localStorage.setItem('goshala_erp_config', savedConfig);
-      if (savedPin) localStorage.setItem('goshala_erp_app_pin', savedPin);
-
-      // Seed baseline data
-      setStorageItem('goshala_erp_fys', SEED_FYS);
-      setStorageItem('goshala_erp_groups', SEED_GROUPS);
-      setStorageItem('goshala_erp_ledgers', cleanLedgers);
-      setStorageItem('goshala_erp_cost_centers', SEED_COST_CENTERS);
-      setStorageItem('goshala_erp_cows', SEED_COWS);
-      setStorageItem('goshala_erp_bank_accounts', cleanBanks);
+      // Non-destructive safe migration path
+      const currentVouchersStr = localStorage.getItem('goshala_erp_vouchers');
+      const currentVouchers: Voucher[] = currentVouchersStr ? JSON.parse(currentVouchersStr) : [];
+      
+      if (!currentVouchers || currentVouchers.length === 0) {
+        // Fresh install: Full wipe & seed
+        const savedConfig = localStorage.getItem('goshala_erp_config');
+        const savedPin = localStorage.getItem('goshala_erp_app_pin');
+        
+        const allKeys = Object.keys(localStorage).filter(k => k.startsWith('goshala_erp_') && k !== 'goshala_erp_config' && k !== 'goshala_erp_app_pin');
+        allKeys.forEach(k => localStorage.removeItem(k));
+        
+        if (savedConfig) localStorage.setItem('goshala_erp_config', savedConfig);
+        if (savedPin) localStorage.setItem('goshala_erp_app_pin', savedPin);
+        
+        setStorageItem('goshala_erp_fys', SEED_FYS);
+        setStorageItem('goshala_erp_groups', SEED_GROUPS);
+        setStorageItem('goshala_erp_ledgers', cleanLedgers);
+        setStorageItem('goshala_erp_cost_centers', SEED_COST_CENTERS);
+        setStorageItem('goshala_erp_cows', SEED_COWS);
+        setStorageItem('goshala_erp_bank_accounts', cleanBanks);
+        setStorageItem('goshala_erp_loans', SEED_LOANS);
+        setStorageItem('goshala_erp_contacts', SEED_CONTACTS);
+        setStorageItem('goshala_erp_vouchers', SEED_VOUCHERS);
+      } else {
+        // MIGRATION: Preserve user data, but patch baseline missing seed data
+        
+        // 1. Remove the incorrect monolithic vendor voucher
+        let migratedVouchers = currentVouchers.filter(v => v.id !== 'v-feed-accrual');
+        
+        // 2. Add the split baseline vendor vouchers if missing
+        const newVendorVouchers = SEED_VOUCHERS.filter(sv => 
+          (sv.id === 'v-feed-accrual-parvat' || sv.id === 'v-feed-accrual-dharmendra' || sv.id === 'v-feed-accrual-suner') && 
+          !migratedVouchers.some(cv => cv.id === sv.id)
+        );
+        if (newVendorVouchers.length > 0) {
+          migratedVouchers = [...migratedVouchers, ...newVendorVouchers];
+          setStorageItem('goshala_erp_vouchers', migratedVouchers);
+        }
+        
+        // 3. Update missing contacts
+        const currentContactsStr = localStorage.getItem('goshala_erp_contacts');
+        let currentContacts: any[] = currentContactsStr ? JSON.parse(currentContactsStr) : [];
+        const missingContacts = SEED_CONTACTS.filter(sc => !currentContacts.some(cc => cc.id === sc.id));
+        if (missingContacts.length > 0) {
+          setStorageItem('goshala_erp_contacts', [...currentContacts, ...missingContacts]);
+        }
+      }
+      
       if (!localStorage.getItem('goshala_erp_config')) setStorageItem('goshala_erp_config', SEED_CONFIG);
-      setStorageItem('goshala_erp_loans', SEED_LOANS);
-      // IMPORTANT: Seed actual historical CA vouchers (not test data)
-      setStorageItem('goshala_erp_vouchers', SEED_VOUCHERS);
 
       localStorage.setItem('goshala_erp_seeded', seedVersion);
       this.recalculateLedgers();
