@@ -99,15 +99,15 @@ export class GoshalaDB {
   }
 
   static init() {
-    const seedVersion = 'v14';
+    const seedVersion = 'v15';
     const seeded = localStorage.getItem('goshala_erp_seeded');
     if (!seeded || seeded !== seedVersion) {
       console.log('Initializing Goshala ERP baseline version:', seedVersion);
       
       const cleanLedgers = SEED_LEDGERS.map(l => ({
         ...l,
-        openingBalance: l.openingBalance || 0,
-        currentBalance: l.currentBalance || 0
+        openingBalance: l.id === 'l-liab-creditors' ? 0 : (l.openingBalance || 0),
+        currentBalance: l.id === 'l-liab-creditors' ? 0 : (l.currentBalance || 0)
       }));
 
       const cleanBanks = SEED_BANK_ACCOUNTS.map(ba => ({

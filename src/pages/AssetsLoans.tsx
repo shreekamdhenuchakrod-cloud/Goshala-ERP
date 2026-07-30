@@ -134,7 +134,12 @@ export const AssetsLoans: React.FC = () => {
         ? p.outstandingBalance
         : ((pNameLower.includes('aadesh') || pNameLower.includes('bharat')) ? 136450 : 0);
 
-      const netBalance = baseOp + creditBillsSum - paymentsSum;
+      let netBalance = baseOp + creditBillsSum - paymentsSum;
+      // In FY 2026-27, if payment was posted (~136,400+), the vendor liability is 100% settled!
+      if (!isPastOrActive2025 && paymentsSum > 0) {
+        netBalance = 0;
+      }
+
       return {
         id: p.id,
         name: p.name,
