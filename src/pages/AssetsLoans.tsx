@@ -145,12 +145,13 @@ export const AssetsLoans: React.FC = () => {
         }
       }
 
-      const hasCreditorEntry = v.entries.some(e => e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor'));
+      const creditorEntries = v.entries.filter(e => e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor'));
+      const hasCreditorEntry = creditorEntries.length > 0;
       const voucherAmt = v.entries.reduce((max, e) => Math.max(max, e.amount), 0);
       const narrationLower = (v.narration || '').toLowerCase();
 
-      const isPaymentVoucher = (v.voucherType === 'PAYMENT' || v.voucherType === 'LOAN_REPAYMENT' || narrationLower.includes('paid') || narrationLower.includes('भुगतान') || narrationLower.includes('दिए'))
-        && !narrationLower.includes('उधारी') && !narrationLower.includes('bill') && !narrationLower.includes('purchase');
+      const isExplicitPayment = (narrationLower.includes('paid') || narrationLower.includes('भुगतान') || narrationLower.includes('दिए'))
+        && !narrationLower.includes('उधारी') && !narrationLower.includes('bill');
 
       if (key) {
         if (!partyMap[key]) {
@@ -167,7 +168,17 @@ export const AssetsLoans: React.FC = () => {
 
         partyMap[key].count += 1;
 
-        if (isPaymentVoucher) {
+        if (hasCreditorEntry) {
+          creditorEntries.forEach(e => {
+            if (!e.isDebit) {
+              // CREDIT to l-liab-creditors = INCREASES VENDOR LIABILITY (DENDARI)
+              partyMap[key].credits += e.amount;
+            } else {
+              // DEBIT to l-liab-creditors = DECREASES VENDOR LIABILITY (PAYMENT MADE)
+              partyMap[key].debits += e.amount;
+            }
+          });
+        } else if (isExplicitPayment) {
           partyMap[key].debits += voucherAmt;
         } else {
           partyMap[key].credits += voucherAmt;
@@ -186,11 +197,10 @@ export const AssetsLoans: React.FC = () => {
           };
         }
         partyMap[genKey].count += 1;
-        if (isPaymentVoucher) {
-          partyMap[genKey].debits += voucherAmt;
-        } else {
-          partyMap[genKey].credits += voucherAmt;
-        }
+        creditorEntries.forEach(e => {
+          if (!e.isDebit) partyMap[genKey].credits += e.amount;
+          else partyMap[genKey].debits += e.amount;
+        });
       }
     });
 
