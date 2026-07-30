@@ -146,6 +146,11 @@ export const AssetsLoans: React.FC = () => {
       }
 
       const hasCreditorEntry = v.entries.some(e => e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor'));
+      const voucherAmt = v.entries.reduce((max, e) => Math.max(max, e.amount), 0);
+      const narrationLower = (v.narration || '').toLowerCase();
+
+      const isPaymentVoucher = (v.voucherType === 'PAYMENT' || v.voucherType === 'LOAN_REPAYMENT' || narrationLower.includes('paid') || narrationLower.includes('भुगतान') || narrationLower.includes('दिए'))
+        && !narrationLower.includes('उधारी') && !narrationLower.includes('bill') && !narrationLower.includes('purchase');
 
       if (key) {
         if (!partyMap[key]) {
@@ -162,15 +167,10 @@ export const AssetsLoans: React.FC = () => {
 
         partyMap[key].count += 1;
 
-        if (v.voucherType === 'PAYMENT') {
-          const payAmt = v.entries.filter(e => !e.isDebit).reduce((s, e) => s + e.amount, 0);
-          partyMap[key].debits += payAmt;
+        if (isPaymentVoucher) {
+          partyMap[key].debits += voucherAmt;
         } else {
-          v.entries.forEach(e => {
-            if ((e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor')) && !e.isDebit) {
-              partyMap[key].credits += e.amount;
-            }
-          });
+          partyMap[key].credits += voucherAmt;
         }
       } else if (hasCreditorEntry) {
         const genKey = 'general creditors';
@@ -186,12 +186,11 @@ export const AssetsLoans: React.FC = () => {
           };
         }
         partyMap[genKey].count += 1;
-        v.entries.forEach(e => {
-          if (e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor')) {
-            if (!e.isDebit) partyMap[genKey].credits += e.amount;
-            else partyMap[genKey].debits += e.amount;
-          }
-        });
+        if (isPaymentVoucher) {
+          partyMap[genKey].debits += voucherAmt;
+        } else {
+          partyMap[genKey].credits += voucherAmt;
+        }
       }
     });
 
