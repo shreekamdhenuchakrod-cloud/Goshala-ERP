@@ -168,14 +168,28 @@ export const AssetsLoans: React.FC = () => {
       }
 
       partyMap[key].count += 1;
-      const voucherAmt = v.entries.reduce((max, e) => Math.max(max, e.amount), 0);
 
-      if (v.voucherType === 'PAYMENT' || (v.voucherType as any) === 'DEBIT_NOTE') {
-        // PAYMENT or DEBIT NOTE = Payment made / Debit note issued to vendor (REDUCES VENDOR LIABILITY)
-        partyMap[key].debits += voucherAmt;
+      // Check if voucher contains explicit entries to l-liab-creditors or vendor ledgers
+      const creditorEntries = v.entries.filter(e => e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor'));
+
+      if (creditorEntries.length > 0) {
+        creditorEntries.forEach(e => {
+          if (!e.isDebit) {
+            // CREDIT to l-liab-creditors = Purchase / Vendor Liability Addition
+            partyMap[key].credits += e.amount;
+          } else {
+            // DEBIT to l-liab-creditors = Payment / Vendor Liability Reduction
+            partyMap[key].debits += e.amount;
+          }
+        });
       } else {
-        // PURCHASE, JOURNAL, or CREDIT NOTE = Credit purchase (INCREASES VENDOR LIABILITY)
-        partyMap[key].credits += voucherAmt;
+        // Fallback for vouchers without explicit l-liab-creditors entry:
+        const voucherAmt = v.entries.reduce((max, e) => Math.max(max, e.amount), 0);
+        if (v.voucherType === 'PAYMENT' || (v.voucherType as any) === 'DEBIT_NOTE') {
+          partyMap[key].debits += voucherAmt;
+        } else {
+          partyMap[key].credits += voucherAmt;
+        }
       }
     });
 
