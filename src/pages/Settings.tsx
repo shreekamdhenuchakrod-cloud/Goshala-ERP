@@ -60,6 +60,7 @@ export const Settings: React.FC = () => {
   // Financial Years state
   const [fys, setFys] = useState<any[]>([]);
   const [newFyName, setNewFyName] = useState('');
+  const [isOpLocked, setIsOpLocked] = useState(() => localStorage.getItem('goshala_erp_op_locked') !== 'false');
 
   const [config, setConfig] = useState<ERPConfig>({
     activeFyId: 'fy-2025-26',
@@ -448,8 +449,24 @@ export const Settings: React.FC = () => {
   };
 
   // Bank Balances handlers
+  const handleToggleOpLock = () => {
+    requirePin(() => {
+      const nextState = !isOpLocked;
+      setIsOpLocked(nextState);
+      localStorage.setItem('goshala_erp_op_locked', String(nextState));
+      alert(nextState 
+        ? '🔒 प्रारंभिक शेष (Opening Balances) सफलतापूर्वक लॉक कर दिए गए हैं! अब इसमें कोई बदलाव नहीं किया जा सकता।'
+        : '🔓 प्रारंभिक शेष (Opening Balances) अनलॉक हो गए हैं! अब आप आवश्यकतानुसार बदलाव कर सकते हैं।'
+      );
+    });
+  };
+
   const handleSaveBankBalances = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isOpLocked) {
+      alert('❌ लॉक त्रुटि: प्रारंभिक बैंक और नकद शेष वर्तमान में सुरक्षित लॉक हैं! कोई भी बदलाव करने के लिए पहले सेटिंग्स में जाकर अनलॉक करें।');
+      return;
+    }
     const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
     Object.entries(bankBalances).forEach(([ledgerId, val]) => {
       const ledger = ledgers.find(l => l.id === ledgerId);
@@ -465,6 +482,10 @@ export const Settings: React.FC = () => {
 
   const handleAddBankAccount = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isOpLocked) {
+      alert('❌ लॉक त्रुटि: प्रारंभिक बैंक और नकद शेष वर्तमान में सुरक्षित लॉक हैं! नया बैंक खाता जोड़ने के लिए पहले अनलॉक करें।');
+      return;
+    }
     if (!newBankName || !newBankCode) return alert('Name and Code are required');
     const ledgers = GoshalaDB.getTable<Ledger>('ledgers');
     if (ledgers.some(l => l.code === newBankCode)) {
@@ -1221,7 +1242,30 @@ export const Settings: React.FC = () => {
               
               {/* Balances configuration */}
               <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
-                <h3 className="font-extrabold text-base text-slate-850 dark:text-white">Bank & Cash Starting Balances (प्रारंभिक बैंक व नकद राशि)</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700">
+                  <div>
+                    <h3 className="font-extrabold text-base text-slate-850 dark:text-white">Bank & Cash Starting Balances (प्रारंभिक बैंक व नकद राशि)</h3>
+                    <p className="text-xs text-slate-400 font-normal">सुरक्षित बहीखाता प्रविष्टि के लिए प्रारंभिक शेष को लॉक या अनलॉक करें।</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold flex items-center space-x-1 ${
+                      isOpLocked ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                    }`}>
+                      <span>{isOpLocked ? '🔒 OPENING BALANCE LOCKED' : '🔓 OPENING BALANCE UNLOCKED'}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleToggleOpLock}
+                      className={`px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-sm transition flex items-center space-x-1 ${
+                        isOpLocked 
+                          ? 'bg-forest-650 hover:bg-forest-750 text-white'
+                          : 'bg-amber-500 hover:bg-amber-600 text-white'
+                      }`}
+                    >
+                      {isOpLocked ? 'Unlock (अनलॉक करें)' : 'Lock (सुरक्षित लॉक करें)'}
+                    </button>
+                  </div>
+                </div>
                 
                 <form onSubmit={handleSaveBankBalances} className="space-y-4 text-xs font-bold text-slate-500">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1231,23 +1275,28 @@ export const Settings: React.FC = () => {
                         <input
                           type="number"
                           required
+                          disabled={isOpLocked}
                           value={bankBalances[l.id] !== undefined ? bankBalances[l.id] : (l.openingBalance || 0)}
                           onChange={(e) => setBankBalances({ ...bankBalances, [l.id]: Number(e.target.value) })}
-                          className="w-full px-3 py-2 border rounded-xl font-normal font-sans"
+                          className={`w-full px-3 py-2 border rounded-xl font-normal font-sans ${
+                            isOpLocked ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 cursor-not-allowed' : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white'
+                          }`}
                         />
                       </div>
                     ))}
                   </div>
 
-                  <div className="flex justify-start">
-                    <button
-                      type="submit"
-                      className="bg-forest-600 hover:bg-forest-750 text-white font-bold px-5 py-2 rounded-xl flex items-center space-x-1.5 transition"
-                    >
-                      <Save className="w-4.5 h-4.5" />
-                      <span>Save Starting Balances</span>
-                    </button>
-                  </div>
+                  {!isOpLocked && (
+                    <div className="flex justify-start">
+                      <button
+                        type="submit"
+                        className="bg-forest-600 hover:bg-forest-750 text-white font-bold px-5 py-2 rounded-xl flex items-center space-x-1.5 transition"
+                      >
+                        <Save className="w-4.5 h-4.5" />
+                        <span>Save Starting Balances</span>
+                      </button>
+                    </div>
+                  )}
                 </form>
               </div>
 
