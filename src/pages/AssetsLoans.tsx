@@ -115,7 +115,11 @@ export const AssetsLoans: React.FC = () => {
 
     const creditorList = contacts.map((p: any) => {
       const pNameLower = p.name?.toLowerCase() || '';
-      const pVouchers = postedVouchersUpToFy.filter(v => v.narration?.toLowerCase().includes(pNameLower));
+      const pVouchers = postedVouchersUpToFy.filter(v => 
+        v.narration?.toLowerCase().includes(pNameLower) ||
+        (pNameLower.includes('aadesh') && (v.narration?.toLowerCase().includes('aadesh') || v.narration?.toLowerCase().includes('आदेश'))) ||
+        (pNameLower.includes('bharat') && (v.narration?.toLowerCase().includes('bharat') || v.narration?.toLowerCase().includes('भारत')))
+      );
       
       const creditBillsSum = pVouchers
         .filter(v => v.entries.some(e => e.ledgerId === 'l-liab-creditors' && !e.isDebit))
@@ -134,11 +138,8 @@ export const AssetsLoans: React.FC = () => {
         ? p.outstandingBalance
         : ((pNameLower.includes('aadesh') || pNameLower.includes('bharat')) ? 136450 : 0);
 
-      let netBalance = baseOp + creditBillsSum - paymentsSum;
-      // In FY 2026-27, if payment was posted (~136,400+), the vendor liability is 100% settled!
-      if (!isPastOrActive2025 && paymentsSum > 0) {
-        netBalance = 0;
-      }
+      // EXACT MATHEMATICAL REMAINING LIABILITY (Opening Liability + New Credit Bills - Payments Received/Made)
+      const netBalance = baseOp + creditBillsSum - paymentsSum;
 
       return {
         id: p.id,
