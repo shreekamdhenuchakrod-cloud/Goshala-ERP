@@ -131,14 +131,11 @@ export const AssetsLoans: React.FC = () => {
       }
     });
 
-    // 2. Scan all vouchers up to active FY end ONLY for entries touching l-liab-creditors or vendor ledgers
+    // 2. Scan all vouchers up to active FY end ONLY for vendor vouchers
     postedVouchersUpToFy.forEach(v => {
       // STRICT ACCOUNTING RULE:
       // RECEIPT (Donations) and LOAN_REPAYMENT vouchers MUST NEVER be processed under Outstanding Creditors for Purchase!
       if (v.voucherType === 'RECEIPT' || v.voucherType === 'LOAN_REPAYMENT') return;
-
-      const creditorEntries = v.entries.filter(e => e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor'));
-      if (creditorEntries.length === 0) return;
 
       let partyNameFromBrackets = '';
       const match = v.narration?.match(/\[(.*?)\]/);
@@ -154,14 +151,12 @@ export const AssetsLoans: React.FC = () => {
         }
       }
 
-      if (!key) {
-        key = 'general creditors';
-      }
+      if (!key) return;
 
       if (!partyMap[key]) {
         partyMap[key] = {
           id: `c-dyn-${Date.now()}-${Math.random()}`,
-          name: partyNameFromBrackets || (key === 'general creditors' ? 'General Sundry Creditors (सामान्य लेनदार बकाया)' : key.toUpperCase()),
+          name: partyNameFromBrackets || key.toUpperCase(),
           phone: '—',
           opening: 0,
           credits: 0,
@@ -171,16 +166,15 @@ export const AssetsLoans: React.FC = () => {
       }
 
       partyMap[key].count += 1;
+      const voucherAmt = v.entries.reduce((max, e) => Math.max(max, e.amount), 0);
 
-      creditorEntries.forEach(e => {
-        if (!e.isDebit) {
-          // CREDIT to l-liab-creditors = Credit Purchase (Increases Vendor Liability)
-          partyMap[key].credits += e.amount;
-        } else {
-          // DEBIT to l-liab-creditors = Vendor Payment (Decreases Vendor Liability)
-          partyMap[key].debits += e.amount;
-        }
-      });
+      if (v.voucherType === 'PAYMENT') {
+        // PAYMENT voucher = Payment made to vendor (REDUCES VENDOR LIABILITY / UDHARI)
+        partyMap[key].debits += voucherAmt;
+      } else {
+        // PURCHASE or JOURNAL voucher = Credit purchase (INCREASES VENDOR LIABILITY / UDHARI)
+        partyMap[key].credits += voucherAmt;
+      }
     });
 
     // 3. Compute net balance for each vendor/party
