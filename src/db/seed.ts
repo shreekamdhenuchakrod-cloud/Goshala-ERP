@@ -1409,19 +1409,51 @@ export const SEED_VOUCHERS: Voucher[] = [
   // ==========================================
   // 6. YEAR END ACCRUAL ADJUSTMENTS & SPECIAL TRANSFERS
   // ==========================================
-  // Accrued Cattle Feed: Add ₹1,36,450 to chara ledger to match ₹22,10,521 on P&L
+  // Accrued Cattle Feed: Split into 3 vendor credit purchase vouchers (Total ₹1,36,450)
   {
-    id: 'v-feed-accrual',
+    id: 'v-feed-accrual-parvat',
     fyId: 'fy-2025-26',
     voucherNumber: 'V-JOR-0031',
     voucherType: 'JOURNAL',
     date: '2026-03-31',
     status: 'POSTED',
     costCenterId: 'cc-feed',
-    narration: 'Accrued Cattle Feed expenses for year-end outstanding balance',
+    narration: 'Credit purchase of cattlefeed grass [parvat singh]',
     entries: [
-      { ledgerId: 'l-exp-chara', amount: 136450, isDebit: true },
-      { ledgerId: 'l-liab-creditors', amount: 136450, isDebit: false }
+      { ledgerId: 'l-exp-chara', amount: 73400, isDebit: true },
+      { ledgerId: 'l-liab-creditors', amount: 73400, isDebit: false }
+    ],
+    attachments: [],
+    auditTrail: []
+  },
+  {
+    id: 'v-feed-accrual-dharmendra',
+    fyId: 'fy-2025-26',
+    voucherNumber: 'V-JOR-0033',
+    voucherType: 'JOURNAL',
+    date: '2026-03-31',
+    status: 'POSTED',
+    costCenterId: 'cc-feed',
+    narration: 'Credit purchase of cattlefeed grass [dharmendra mewada]',
+    entries: [
+      { ledgerId: 'l-exp-chara', amount: 43250, isDebit: true },
+      { ledgerId: 'l-liab-creditors', amount: 43250, isDebit: false }
+    ],
+    attachments: [],
+    auditTrail: []
+  },
+  {
+    id: 'v-feed-accrual-suner',
+    fyId: 'fy-2025-26',
+    voucherNumber: 'V-JOR-0034',
+    voucherType: 'JOURNAL',
+    date: '2026-03-31',
+    status: 'POSTED',
+    costCenterId: 'cc-feed',
+    narration: 'Credit purchase of cattlefeed grass [suner singh]',
+    entries: [
+      { ledgerId: 'l-exp-chara', amount: 19800, isDebit: true },
+      { ledgerId: 'l-liab-creditors', amount: 19800, isDebit: false }
     ],
     attachments: [],
     auditTrail: []
