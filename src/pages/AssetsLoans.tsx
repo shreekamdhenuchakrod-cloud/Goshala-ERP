@@ -100,7 +100,7 @@ export const AssetsLoans: React.FC = () => {
     );
     setRepayVouchers(loanRepaysInActiveFy.reverse());
 
-    // Calculate Sundry Creditors - STRICTLY UP TO ACTIVE FY END DATE
+    // Calculate Sundry Creditors - 100% DYNAMICALLY FROM VOUCHERS AND CONTACTS
     const contacts = GoshalaDB.getTable<any>('contacts');
     const isPastOrActive2025 = activeFyId === 'fy-2025-26';
 
@@ -113,44 +113,101 @@ export const AssetsLoans: React.FC = () => {
       return v.date <= activeFyObj.endDate;
     });
 
-    const creditorList = contacts.map((p: any) => {
-      const pNameLower = p.name?.toLowerCase() || '';
-      const pVouchers = postedVouchersUpToFy.filter(v => 
-        v.narration?.toLowerCase().includes(pNameLower) ||
-        (pNameLower.includes('aadesh') && (v.narration?.toLowerCase().includes('aadesh') || v.narration?.toLowerCase().includes('आदेश'))) ||
-        (pNameLower.includes('bharat') && (v.narration?.toLowerCase().includes('bharat') || v.narration?.toLowerCase().includes('भारत')))
-      );
-      
-      const creditBillsSum = pVouchers
-        .filter(v => v.entries.some(e => e.ledgerId === 'l-liab-creditors' && !e.isDebit))
-        .reduce((s, v) => s + (v.entries.find(e => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
-      
-      const paymentsSum = pVouchers
-        .filter(v => v.voucherType === 'PAYMENT' || v.entries.some(e => e.ledgerId === 'l-liab-creditors' && e.isDebit))
-        .reduce((s, v) => {
-          const credAmt = v.entries.find(e => e.ledgerId === 'l-liab-creditors' && e.isDebit)?.amount;
-          if (credAmt) return s + credAmt;
-          const payAmt = v.entries.filter(e => !e.isDebit).reduce((sum, e) => sum + e.amount, 0);
-          return s + payAmt;
-        }, 0);
+    const partyMap: { [key: string]: { id: string; name: string; phone: string; opening: number; credits: number; debits: number; count: number } } = {};
 
-      const baseOp = p.outstandingBalance !== undefined && p.outstandingBalance > 0
-        ? p.outstandingBalance
-        : ((pNameLower.includes('aadesh') || pNameLower.includes('bharat')) ? 136450 : 0);
+    // 1. Seed contacts into partyMap
+    contacts.forEach(c => {
+      const key = c.name.trim().toLowerCase();
+      partyMap[key] = {
+        id: c.id,
+        name: c.name.trim(),
+        phone: c.phone || '—',
+        opening: Number(c.outstandingBalance) || 0,
+        credits: 0,
+        debits: 0,
+        count: 0
+      };
+    });
 
-      // EXACT MATHEMATICAL REMAINING LIABILITY (Opening Liability + New Credit Bills - Payments Received/Made)
-      const netBalance = baseOp + creditBillsSum - paymentsSum;
+    // 2. Scan all vouchers up to active FY end for creditor entries & party names
+    postedVouchersUpToFy.forEach(v => {
+      let partyNameFromBrackets = '';
+      const match = v.narration?.match(/\[(.*?)\]/);
+      if (match && match[1]) {
+        partyNameFromBrackets = match[1].trim();
+      }
 
+      let key = partyNameFromBrackets.toLowerCase();
+      if (!key) {
+        const matchedContact = contacts.find(c => v.narration?.toLowerCase().includes(c.name.toLowerCase()));
+        if (matchedContact) {
+          key = matchedContact.name.trim().toLowerCase();
+        }
+      }
+
+      const hasCreditorEntry = v.entries.some(e => e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor'));
+
+      if (key) {
+        if (!partyMap[key]) {
+          partyMap[key] = {
+            id: `c-dyn-${Date.now()}-${Math.random()}`,
+            name: partyNameFromBrackets || key.toUpperCase(),
+            phone: '—',
+            opening: 0,
+            credits: 0,
+            debits: 0,
+            count: 0
+          };
+        }
+
+        partyMap[key].count += 1;
+
+        if (v.voucherType === 'PAYMENT') {
+          const payAmt = v.entries.filter(e => !e.isDebit).reduce((s, e) => s + e.amount, 0);
+          partyMap[key].debits += payAmt;
+        } else {
+          v.entries.forEach(e => {
+            if ((e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor')) && !e.isDebit) {
+              partyMap[key].credits += e.amount;
+            }
+          });
+        }
+      } else if (hasCreditorEntry) {
+        const genKey = 'general creditors';
+        if (!partyMap[genKey]) {
+          partyMap[genKey] = {
+            id: 'c-general-creditors',
+            name: 'General Sundry Creditors (सामान्य लेनदार बकाया)',
+            phone: '—',
+            opening: 0,
+            credits: 0,
+            debits: 0,
+            count: 0
+          };
+        }
+        partyMap[genKey].count += 1;
+        v.entries.forEach(e => {
+          if (e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor')) {
+            if (!e.isDebit) partyMap[genKey].credits += e.amount;
+            else partyMap[genKey].debits += e.amount;
+          }
+        });
+      }
+    });
+
+    // 3. Compute net balance for each vendor/party
+    const creditorList = Object.values(partyMap).map(p => {
+      const netBal = p.opening + p.credits - p.debits;
       return {
         id: p.id,
         name: p.name,
         phone: p.phone,
-        balance: Math.max(0, netBalance),
-        billsCount: pVouchers.length
+        balance: Math.max(0, netBal),
+        billsCount: p.count
       };
-    }).filter((p: any) => p.balance > 0);
+    }).filter(p => p.balance > 0);
 
-    const totalCreditorBal = creditorList.reduce((sum: number, p: any) => sum + p.balance, 0);
+    const totalCreditorBal = creditorList.reduce((sum, p) => sum + p.balance, 0);
 
     setSundryCreditors(creditorList);
     setTotalCreditorLiability(totalCreditorBal);
