@@ -58,8 +58,10 @@ export const AssetsLoans: React.FC = () => {
     };
 
     window.addEventListener('goshala_fy_changed', handleFyChanged);
+    window.addEventListener('goshala_voucher_updated', handleFyChanged);
     return () => {
       window.removeEventListener('goshala_fy_changed', handleFyChanged);
+      window.removeEventListener('goshala_voucher_updated', handleFyChanged);
     };
   }, []);
 
@@ -168,11 +170,11 @@ export const AssetsLoans: React.FC = () => {
       partyMap[key].count += 1;
       const voucherAmt = v.entries.reduce((max, e) => Math.max(max, e.amount), 0);
 
-      if (v.voucherType === 'PAYMENT') {
-        // PAYMENT voucher = Payment made to vendor (REDUCES VENDOR LIABILITY / UDHARI)
+      if (v.voucherType === 'PAYMENT' || (v.voucherType as any) === 'DEBIT_NOTE') {
+        // PAYMENT or DEBIT NOTE = Payment made / Debit note issued to vendor (REDUCES VENDOR LIABILITY)
         partyMap[key].debits += voucherAmt;
       } else {
-        // PURCHASE or JOURNAL voucher = Credit purchase (INCREASES VENDOR LIABILITY / UDHARI)
+        // PURCHASE, JOURNAL, or CREDIT NOTE = Credit purchase (INCREASES VENDOR LIABILITY)
         partyMap[key].credits += voucherAmt;
       }
     });

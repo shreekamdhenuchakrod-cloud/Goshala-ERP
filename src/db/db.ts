@@ -531,6 +531,9 @@ export class GoshalaDB {
     this.saveTable('vouchers', vouchers);
     this.recalculateLedgers();
     this.logAction(activeUser.name, activeUser.role, 'SAVE_VOUCHER', `Voucher ${v.voucherNumber} saved with status ${v.status}`);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('goshala_voucher_updated'));
+    }
   }
 
   // Complete Financial Year Closing

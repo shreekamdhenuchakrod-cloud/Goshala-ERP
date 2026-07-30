@@ -218,8 +218,10 @@ export const Dashboard: React.FC = () => {
     };
 
     window.addEventListener('goshala_fy_changed', handleFyChanged);
+    window.addEventListener('goshala_voucher_updated', handleFyChanged);
     return () => {
       window.removeEventListener('goshala_fy_changed', handleFyChanged);
+      window.removeEventListener('goshala_voucher_updated', handleFyChanged);
     };
   }, []);
 
