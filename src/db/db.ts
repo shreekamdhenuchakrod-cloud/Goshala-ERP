@@ -99,7 +99,7 @@ export class GoshalaDB {
   }
 
   static init() {
-    const seedVersion = 'v13';
+    const seedVersion = 'v14';
     const seeded = localStorage.getItem('goshala_erp_seeded');
     if (!seeded || seeded !== seedVersion) {
       console.log('Initializing Goshala ERP baseline version:', seedVersion);

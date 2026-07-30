@@ -74,7 +74,7 @@ export const SEED_LEDGERS: Ledger[] = [
   
   // 7. Liabilities: Current Liabilities
   { id: 'l-liab-audit', groupId: 'g-current-liab', name: 'Audit Fees Payable (देय लेखापरीक्षा शुल्क)', code: '2001', type: 'LIABILITY', openingBalance: 2000, currentBalance: 2000 },
-  { id: 'l-liab-creditors', groupId: 'g-current-liab', name: 'Outstanding Creditors for Purchase (लेनदार बकाया)', code: '2002', type: 'LIABILITY', openingBalance: 136450, currentBalance: 136450 },
+  { id: 'l-liab-creditors', groupId: 'g-current-liab', name: 'Outstanding Creditors for Purchase (लेनदार बकाया)', code: '2002', type: 'LIABILITY', openingBalance: 0, currentBalance: 0 },
 
   // 8. Income Streams (As per CA report)
   { id: 'l-inc-grants-aayog', groupId: 'g-income', name: 'MP Gau Sewa Samardhan Board Bhopal (एमपी गौ सेवा आयोग)', code: '4001', type: 'INCOME', openingBalance: 0, currentBalance: 0 },

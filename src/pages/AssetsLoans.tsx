@@ -113,7 +113,7 @@ export const AssetsLoans: React.FC = () => {
       return v.date <= activeFyObj.endDate;
     });
 
-    let creditorList = contacts.map((p: any) => {
+    const creditorList = contacts.map((p: any) => {
       const pNameLower = p.name?.toLowerCase() || '';
       const pVouchers = postedVouchersUpToFy.filter(v => v.narration?.toLowerCase().includes(pNameLower));
       
@@ -144,20 +144,7 @@ export const AssetsLoans: React.FC = () => {
       };
     }).filter((p: any) => p.balance > 0);
 
-    const generalCreditorLedgerBal = fyBalances['l-liab-creditors']?.currentBalance ?? (isPastOrActive2025 ? 136450 : 0);
-    const totalCreditorBal = creditorList.length > 0
-      ? creditorList.reduce((sum: number, p: any) => sum + p.balance, 0)
-      : Math.max(0, generalCreditorLedgerBal);
-
-    if (creditorList.length === 0 && totalCreditorBal > 0) {
-      creditorList.push({
-        id: 'c-vend-feed',
-        name: 'Aadesh Industries (आदेश इंडस्ट्रीज)',
-        phone: '9009988776',
-        balance: totalCreditorBal,
-        billsCount: 1
-      });
-    }
+    const totalCreditorBal = creditorList.reduce((sum: number, p: any) => sum + p.balance, 0);
 
     setSundryCreditors(creditorList);
     setTotalCreditorLiability(totalCreditorBal);
