@@ -68,7 +68,7 @@ export interface CostCenter {
   spentAmount: number;
 }
 
-export type VoucherType = 'RECEIPT' | 'PAYMENT' | 'JOURNAL' | 'CONTRA' | 'LOAN_REPAYMENT' | 'PURCHASE' | 'SALES';
+export type VoucherType = 'RECEIPT' | 'PAYMENT' | 'JOURNAL' | 'CONTRA' | 'LOAN_REPAYMENT' | 'PURCHASE' | 'SALES' | 'SUPPLIER_PAYMENT';
 export type VoucherStatus =
   | 'DRAFT'
   | 'ACCOUNTANT_VERIFIED'

@@ -99,9 +99,10 @@ export class GoshalaDB {
   }
 
   static init() {
-    const seedVersion = 'v17';
-    const seeded = localStorage.getItem('goshala_erp_seeded');
-    if (!seeded || seeded !== seedVersion) {
+    const seedVersion = 'v21';
+    const isSeeded = localStorage.getItem('goshala_erp_seeded');
+    
+    if (isSeeded !== seedVersion) {
       console.log('Migrating to Goshala ERP baseline version:', seedVersion);
       
       const cleanLedgers = SEED_LEDGERS.map(l => ({
@@ -160,7 +161,118 @@ export class GoshalaDB {
         let currentContacts: any[] = currentContactsStr ? JSON.parse(currentContactsStr) : [];
         const missingContacts = SEED_CONTACTS.filter(sc => !currentContacts.some(cc => cc.id === sc.id));
         if (missingContacts.length > 0) {
-          setStorageItem('goshala_erp_contacts', [...currentContacts, ...missingContacts]);
+          currentContacts = [...currentContacts, ...missingContacts];
+          setStorageItem('goshala_erp_contacts', currentContacts);
+        }
+
+        // 4. MIGRATION v18: Convert Narration Bracket Links to Explicit subLedgerId
+        let vouchersMigrated = false;
+        
+        migratedVouchers = migratedVouchers.map(v => {
+          // If voucher already has subLedgerId somewhere, we assume it's migrated
+          const hasSubLedgerId = v.entries.some(e => e.subLedgerId);
+          if (hasSubLedgerId) return v;
+          
+          // Skip explicit manual override requested by user
+          if (v.id === 'v-1785429555380') return v;
+  
+          if (!v.narration || !v.narration.match(/\[(.*?)\]/)) return v;
+          
+          const match = v.narration.match(/\[(.*?)\]/);
+          if (!match) return v;
+          const bracketName = match[1].trim().toLowerCase();
+          
+          // Exact matches only (100% confident)
+          const exactMatches = currentContacts.filter(c => c.name.trim().toLowerCase() === bracketName);
+          if (exactMatches.length === 1) {
+            const party = exactMatches[0];
+            
+            // Attach subLedgerId to the most appropriate entry
+            // Priority 1: Creditor or Loan ledger
+            const targetEntry = v.entries.find(e => e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor') || e.ledgerId.includes('loan'));
+            
+            if (targetEntry) {
+              targetEntry.subLedgerId = party.id;
+            } else {
+              // Priority 2: Income or Expense
+              const expIncEntry = v.entries.find(e => e.ledgerId.includes('exp') || e.ledgerId.includes('inc'));
+              if (expIncEntry) {
+                expIncEntry.subLedgerId = party.id;
+              } else {
+                // Priority 3: First entry
+                if (v.entries.length > 0) v.entries[0].subLedgerId = party.id;
+              }
+            }
+            vouchersMigrated = true;
+          }
+          return v;
+        });
+  
+        if (vouchersMigrated) {
+          setStorageItem('goshala_erp_vouchers', migratedVouchers);
+          syncTableToFirestore('vouchers', migratedVouchers);
+        }
+        
+        // 5. MIGRATION v19: Fix old VoucherTypes for Purchases and Supplier Payments
+        let typesMigrated = false;
+        migratedVouchers = migratedVouchers.map(v => {
+          // If it was recorded as PAYMENT but credited l-liab-creditors (Purchase hack)
+          if (v.voucherType === 'PAYMENT' && v.entries.some(e => !e.isDebit && e.ledgerId === 'l-liab-creditors')) {
+            v.voucherType = 'PURCHASE';
+            typesMigrated = true;
+          }
+          // If it was recorded as LOAN_REPAYMENT but debited l-liab-creditors (Supplier Payment hack)
+          if (v.voucherType === 'LOAN_REPAYMENT' && v.entries.some(e => e.isDebit && e.ledgerId === 'l-liab-creditors') && !v.entries.some(e => e.ledgerId.startsWith('l-loan') || e.ledgerId.startsWith('l-member') || e.ledgerId === 'g-loans-liab')) {
+            v.voucherType = 'SUPPLIER_PAYMENT';
+            typesMigrated = true;
+          }
+          return v;
+        });
+
+        // 6. MIGRATION v21: Comprehensive fix for missing subLedgerIds and miscategorized vouchers
+        let v21Migrated = false;
+        migratedVouchers = migratedVouchers.map(v => {
+          // Identify any entries targeting creditors that are missing subLedgerId
+          const creditorEntries = v.entries.filter(e => (e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor')));
+          
+          creditorEntries.forEach(entry => {
+             if (!entry.subLedgerId && v.narration && v.narration.match(/\[(.*?)\]/)) {
+               const match = v.narration.match(/\[(.*?)\]/);
+               if (match) {
+                 const bracketName = match[1].trim().toLowerCase();
+                 const exactMatches = currentContacts.filter(c => c.name.trim().toLowerCase() === bracketName);
+                 if (exactMatches.length === 1) {
+                   entry.subLedgerId = exactMatches[0].id;
+                   v21Migrated = true;
+                 }
+               }
+             }
+          });
+
+          // Force LOA vouchers to SUPPLIER_PAYMENT if they DEBIT creditors
+          if (v.voucherType === 'LOAN_REPAYMENT' && v.entries.some(e => e.isDebit && e.ledgerId === 'l-liab-creditors')) {
+             v.voucherType = 'SUPPLIER_PAYMENT';
+             v21Migrated = true;
+          }
+          
+          // Force generic PAYMENT vouchers to SUPPLIER_PAYMENT if they DEBIT creditors (Standard payment made via incorrect type)
+          if (v.voucherType === 'PAYMENT' && v.entries.some(e => e.isDebit && e.ledgerId === 'l-liab-creditors')) {
+             v.voucherType = 'SUPPLIER_PAYMENT';
+             v21Migrated = true;
+          }
+
+          // Force generic PAYMENT vouchers to PURCHASE if they CREDIT creditors (Purchase made via incorrect type)
+          if (v.voucherType === 'PAYMENT' && v.entries.some(e => !e.isDebit && e.ledgerId === 'l-liab-creditors')) {
+             v.voucherType = 'PURCHASE';
+             v21Migrated = true;
+          }
+
+          return v;
+        });
+
+        if (vouchersMigrated || typesMigrated || v21Migrated) {
+          setStorageItem('goshala_erp_vouchers', migratedVouchers);
+          syncTableToFirestore('vouchers', migratedVouchers);
         }
       }
       

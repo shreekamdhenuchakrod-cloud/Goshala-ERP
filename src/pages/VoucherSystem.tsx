@@ -27,7 +27,7 @@ export const VoucherSystem: React.FC = () => {
     voucherNumberFormat: 'V-{TYPE}-{NUM}',
     receiptFormat: 'R-{NUM}',
     taxRate: 5,
-    letterheadText: 'Shree Krishna Balram Goushala\nChakrod, Shajapur (M.P.)\n12A & 80G Certified Non-Profit Organisation',
+    letterheadText: 'Shree Krishna Balram GoushalanChakrod, Shajapur (M.P.)n12A & 80G Certified Non-Profit Organisation',
     enable80G: true
   });
 
@@ -111,8 +111,13 @@ export const VoucherSystem: React.FC = () => {
         ...table[0]
       });
     }
-
-    setVouchers(GoshalaDB.getTable<Voucher>('vouchers').sort((a,b) => b.voucherNumber.localeCompare(a.voucherNumber)));
+    setVouchers(GoshalaDB.getTable<Voucher>('vouchers').sort((a,b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date);
+      const tsA = a.createdAt || '';
+      const tsB = b.createdAt || '';
+      if (tsA !== tsB) return tsB.localeCompare(tsA);
+      return b.voucherNumber.localeCompare(a.voucherNumber);
+    }));
     setLedgers(GoshalaDB.getTable<Ledger>('ledgers'));
     setCostCenters(GoshalaDB.getTable<CostCenter>('cost_centers'));
     setContacts(GoshalaDB.getTable<Contact>('contacts'));
@@ -372,33 +377,38 @@ export const VoucherSystem: React.FC = () => {
     
     if (vType === 'PAYMENT') {
       // Debit particular (expense ledger), Credit cash/bank
-      entries.push({ ledgerId: selectedParticular, amount: singleAmount, isDebit: true });
+      entries.push({ ledgerId: selectedParticular, subLedgerId: selectedContactId || undefined, amount: singleAmount, isDebit: true });
       entries.push({ ledgerId: selectedCashBank, amount: singleAmount, isDebit: false });
+    } else if (vType === 'SUPPLIER_PAYMENT') {
+      // Debit particular (liability/creditor ledger), Credit cash/bank
+      entries.push({ ledgerId: selectedParticular, subLedgerId: selectedContactId || undefined, amount: singleAmount, isDebit: true });
+      entries.push({ ledgerId: selectedCashBank, amount: singleAmount, isDebit: false });
+    } else if (vType === 'PURCHASE') {
+      // Debit particular (expense/asset ledger), Credit Pay From (liability/creditor ledger)
+      entries.push({ ledgerId: selectedParticular, amount: singleAmount, isDebit: true });
+      entries.push({ ledgerId: selectedCashBank, subLedgerId: selectedContactId || undefined, amount: singleAmount, isDebit: false });
     } else if (vType === 'RECEIPT') {
       // Debit cash/bank, Credit particular (income ledger)
       entries.push({ ledgerId: selectedCashBank, amount: singleAmount, isDebit: true });
-      entries.push({ ledgerId: selectedParticular, amount: singleAmount, isDebit: false });
+      entries.push({ ledgerId: selectedParticular, subLedgerId: selectedContactId || undefined, amount: singleAmount, isDebit: false });
     } else if (vType === 'LOAN_REPAYMENT') {
       // Debit Loan Ledger (Principal paid), Debit Interest Expense (if any), Credit Cash/Bank (Total paid)
-      entries.push({ ledgerId: selectedParticular, amount: singleAmount, isDebit: true });
+      entries.push({ ledgerId: selectedParticular, subLedgerId: selectedContactId || undefined, amount: singleAmount, isDebit: true });
       if (interestAmount > 0) {
         entries.push({ ledgerId: 'l-exp-interest', amount: interestAmount, isDebit: true });
       }
       entries.push({ ledgerId: selectedCashBank, amount: singleAmount + interestAmount, isDebit: false });
     } else if (vType === 'CONTRA') {
       // Transfer to particular (debit), from cashBank (credit)
-      entries.push({ ledgerId: selectedParticular, amount: singleAmount, isDebit: true });
+      entries.push({ ledgerId: selectedParticular, subLedgerId: selectedContactId || undefined, amount: singleAmount, isDebit: true });
       entries.push({ ledgerId: selectedCashBank, amount: singleAmount, isDebit: false });
     } else if (vType === 'JOURNAL') {
-      entries.push({ ledgerId: selectedParticular, amount: singleAmount, isDebit: true });
+      // For Journal, if it hits a liability/vendor, it needs subLedgerId. We'll just attach to the Debit for now.
+      entries.push({ ledgerId: selectedParticular, subLedgerId: selectedContactId || undefined, amount: singleAmount, isDebit: true });
       entries.push({ ledgerId: selectedCashBank, amount: singleAmount, isDebit: false });
     }
 
-    const party = contacts.find(c => c.id === selectedContactId);
-    let finalNarration = vNarration;
-    if (party) {
-      finalNarration = `[${party.name}] ${vNarration}`;
-    }
+    const finalNarration = vNarration;
 
     if (editingVoucher) {
       const vToSave: Voucher = {
@@ -490,13 +500,19 @@ export const VoucherSystem: React.FC = () => {
       }
 
       // Strip bracketed contact name from narration if present
-      const match = v.narration.match(/^\[([^\]]+)\]\s*(.*)/);
-      if (match) {
-        setVNarration(match[2]);
-        const party = contacts.find(c => c.name === match[1]);
-        if (party) setSelectedContactId(party.id);
+      setVNarration(v.narration);
+      
+      const entryWithSubLedger = v.entries.find(e => e.subLedgerId);
+      if (entryWithSubLedger && entryWithSubLedger.subLedgerId) {
+        setSelectedContactId(entryWithSubLedger.subLedgerId);
       } else {
-        setVNarration(v.narration);
+        // Fallback for old unmigrated vouchers that still have brackets (if any failed migration)
+        const match = v.narration.match(/^\[([^\]]+)\]\s*(.*)/);
+        if (match) {
+          setVNarration(match[2]);
+          const party = contacts.find(c => c.name === match[1]);
+          if (party) setSelectedContactId(party.id);
+        }
       }
 
       setBillFile(v.attachments && v.attachments.length > 0 ? v.attachments[0] : '');
@@ -911,6 +927,8 @@ export const VoucherSystem: React.FC = () => {
                 >
                   <option value="PAYMENT">PAYMENT (भुगतान खर्च)</option>
                   <option value="RECEIPT">RECEIPT (आवक आय)</option>
+                  <option value="SUPPLIER_PAYMENT">SUPPLIER PAYMENT (क्रेडिटर भुगतान)</option>
+                  <option value="PURCHASE">PURCHASE (उधारी खरीदी)</option>
                   <option value="LOAN_REPAYMENT">LOAN REPAYMENT (ऋण भुगतान)</option>
                   <option value="CONTRA">CONTRA (बैंक-नकद अंतरण)</option>
                   <option value="JOURNAL">JOURNAL (एडजस्टमेंट बही)</option>
@@ -980,6 +998,8 @@ export const VoucherSystem: React.FC = () => {
                   <label>
                     {vType === 'RECEIPT' && "पैसा किस मद से आया? (Source of Income)"}
                     {vType === 'PAYMENT' && "पैसा कहाँ खर्च हुआ? (Expense Account)"}
+                    {vType === 'PURCHASE' && "क्या ख़रीदा? (Asset / Expense Account)"}
+                    {vType === 'SUPPLIER_PAYMENT' && "किसको भुगतान किया? (Supplier/Creditor Account)"}
                     {vType === 'LOAN_REPAYMENT' && "किस ऋण का भुगतान किया? (Loan Account)"}
                     {vType === 'CONTRA' && "Transfer To (जमा खाता - Cash/Bank)"}
                     {vType === 'JOURNAL' && "Debit Account (Dr)"}
@@ -1002,6 +1022,12 @@ export const VoucherSystem: React.FC = () => {
                   {vType === 'PAYMENT' && expenseLedgers.map(l => (
                     <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
                   ))}
+                  {vType === 'PURCHASE' && ledgers.filter(l => l.type === 'EXPENSE' || l.type === 'ASSET').map(l => (
+                    <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
+                  ))}
+                  {vType === 'SUPPLIER_PAYMENT' && ledgers.filter(l => l.groupId === 'g-current-liab' || l.id === 'l-liab-creditors' || l.type === 'LIABILITY').map(l => (
+                    <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
+                  ))}
                   {vType === 'RECEIPT' && incomeLedgers.map(l => (
                     <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
                   ))}
@@ -1022,6 +1048,8 @@ export const VoucherSystem: React.FC = () => {
                   <label>
                     {vType === 'RECEIPT' && "पैसा कहाँ आया? (Deposit To - Cash/Bank)"}
                     {vType === 'PAYMENT' && "पैसा कहाँ से गया? (Pay From - Cash/Bank)"}
+                    {vType === 'SUPPLIER_PAYMENT' && "पैसा कहाँ से गया? (Pay From - Cash/Bank)"}
+                    {vType === 'PURCHASE' && "किससे ख़रीदा? (Payable To - Creditor/Liability)"}
                     {vType === 'CONTRA' && "Transfer From (निकासी खाता - Cash/Bank)"}
                     {vType === 'JOURNAL' && "Credit Account (Cr)"}
                   </label>
@@ -1041,6 +1069,8 @@ export const VoucherSystem: React.FC = () => {
                 >
                   <option value="">Choose Ledger Account</option>
                   {vType === 'JOURNAL' ? ledgers.map(l => (
+                    <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
+                  )) : vType === 'PURCHASE' ? ledgers.filter(l => l.groupId === 'g-current-liab' || l.id === 'l-liab-creditors' || l.type === 'LIABILITY').map(l => (
                     <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>
                   )) : cashBankLedgers.map(l => (
                     <option key={l.id} value={l.id}>{l.name} [{l.code}]</option>

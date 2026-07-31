@@ -13,12 +13,15 @@ export const AssetsLoans: React.FC = () => {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [repayVouchers, setRepayVouchers] = useState<Voucher[]>([]);
   const [sundryCreditors, setSundryCreditors] = useState<{ id: string; name: string; phone: string; balance: number; billsCount: number }[]>([]);
+  const [supplierAdvances, setSupplierAdvances] = useState<{ id: string; name: string; phone: string; balance: number; billsCount: number }[]>([]);
   const [totalCreditorLiability, setTotalCreditorLiability] = useState<number>(0);
+  const [totalSupplierAdvances, setTotalSupplierAdvances] = useState<number>(0);
 
   // Modals visibility
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [showLoanModal, setShowLoanModal] = useState(false);
   const [showRepayModal, setShowRepayModal] = useState(false);
+  const [showAdvancesModal, setShowAdvancesModal] = useState(false);
   
   // Selected items for Edit/Repay
   const [editingAsset, setEditingAsset] = useState<Ledger | null>(null);
@@ -115,100 +118,79 @@ export const AssetsLoans: React.FC = () => {
       return v.date <= activeFyObj.endDate;
     });
 
-    const partyMap: { [key: string]: { id: string; name: string; phone: string; opening: number; credits: number; debits: number; count: number } } = {};
+    const partyMap: { [contactId: string]: { id: string; name: string; phone: string; opening: number; credits: number; debits: number; count: number } } = {};
 
-    // 1. Seed contacts into partyMap (only vendor contacts or contacts with initial vendor opening balance)
+    // 1. Seed ALL contacts into partyMap
     contacts.forEach(c => {
-      const key = c.name.trim().toLowerCase();
-      if (c.type === 'VENDOR' || (c.outstandingBalance && c.outstandingBalance > 0)) {
-        partyMap[key] = {
-          id: c.id,
-          name: c.name.trim(),
-          phone: c.phone || '—',
-          opening: Number(c.outstandingBalance) || 0,
-          credits: 0,
-          debits: 0,
-          count: 0
-        };
-      }
+      partyMap[c.id] = {
+        id: c.id,
+        name: c.name.trim(),
+        phone: c.phone || '—',
+        opening: Number(c.outstandingBalance) || 0,
+        credits: 0,
+        debits: 0,
+        count: 0
+      };
     });
 
-    // 2. Scan all vouchers up to active FY end ONLY for vendor vouchers
+    // 2. Scan all vouchers up to active FY end for explicit subLedgerId entries
     postedVouchersUpToFy.forEach(v => {
-      // STRICT ACCOUNTING RULE:
-      // RECEIPT (Donations) and LOAN_REPAYMENT vouchers MUST NEVER be processed under Outstanding Creditors for Purchase!
-      if (v.voucherType === 'RECEIPT' || v.voucherType === 'LOAN_REPAYMENT') return;
-
-      let partyNameFromBrackets = '';
-      const match = v.narration?.match(/\[(.*?)\]/);
-      if (match && match[1]) {
-        partyNameFromBrackets = match[1].trim();
-      }
-
-      let key = partyNameFromBrackets.toLowerCase();
-      if (!key) {
-        const matchedContact = contacts.find(c => v.narration?.toLowerCase().includes(c.name.toLowerCase()));
-        if (matchedContact) {
-          key = matchedContact.name.trim().toLowerCase();
-        }
-      }
-
-      if (!key) return;
-
-      if (!partyMap[key]) {
-        partyMap[key] = {
-          id: `c-dyn-${Date.now()}-${Math.random()}`,
-          name: partyNameFromBrackets || key.toUpperCase(),
-          phone: '—',
-          opening: 0,
-          credits: 0,
-          debits: 0,
-          count: 0
-        };
-      }
-
-      partyMap[key].count += 1;
-
-      // Check if voucher contains explicit entries to l-liab-creditors or vendor ledgers
+      // Find entries that hit liability ledgers (creditors)
       const creditorEntries = v.entries.filter(e => e.ledgerId === 'l-liab-creditors' || e.ledgerId.includes('vend') || e.ledgerId.includes('creditor'));
-
-      if (creditorEntries.length > 0) {
-        creditorEntries.forEach(e => {
-          if (!e.isDebit) {
-            // CREDIT to l-liab-creditors = Purchase / Vendor Liability Addition
-            partyMap[key].credits += e.amount;
-          } else {
-            // DEBIT to l-liab-creditors = Payment / Vendor Liability Reduction
-            partyMap[key].debits += e.amount;
-          }
-        });
-      } else {
-        // Fallback for vouchers without explicit l-liab-creditors entry:
-        const voucherAmt = v.entries.reduce((max, e) => Math.max(max, e.amount), 0);
-        if (v.voucherType === 'PAYMENT' || (v.voucherType as any) === 'DEBIT_NOTE') {
-          partyMap[key].debits += voucherAmt;
-        } else {
-          partyMap[key].credits += voucherAmt;
+      
+      creditorEntries.forEach(e => {
+        if (!e.subLedgerId) return; // Ignore unlinked entries
+        
+        if (!partyMap[e.subLedgerId]) {
+            // Unlikely to happen if the contact was deleted, but let's handle it safely
+            partyMap[e.subLedgerId] = {
+              id: e.subLedgerId,
+              name: 'Unlinked / Deleted Supplier',
+              phone: '—',
+              opening: 0,
+              credits: 0,
+              debits: 0,
+              count: 0
+            };
         }
-      }
+        
+        partyMap[e.subLedgerId].count += 1;
+        
+        if (!e.isDebit) {
+          // CREDIT to l-liab-creditors = Purchase / Vendor Liability Addition
+          partyMap[e.subLedgerId].credits += e.amount;
+        } else {
+          // DEBIT to l-liab-creditors = Payment / Vendor Liability Reduction
+          partyMap[e.subLedgerId].debits += e.amount;
+        }
+      });
     });
 
     // 3. Compute net balance for each vendor/party
     const creditorList = Object.values(partyMap).map(p => {
-      const netBal = p.opening + p.credits - p.debits;
       return {
         id: p.id,
         name: p.name,
         phone: p.phone,
-        balance: Math.max(0, netBal),
+        balance: p.opening + p.credits - p.debits,
         billsCount: p.count
       };
-    }).filter(p => p.balance > 0);
+    });
 
-    const totalCreditorBal = creditorList.reduce((sum, p) => sum + p.balance, 0);
+    // Outstanding Creditors (Credit Balances > 0)
+    const outstandingCreditors = creditorList.filter(p => p.balance > 0);
+    const totalCreditorBal = outstandingCreditors.reduce((sum, p) => sum + p.balance, 0);
 
-    setSundryCreditors(creditorList);
+    // Supplier Advances (Debit Balances < 0)
+    const advancesList = creditorList
+        .filter(p => p.balance < 0)
+        .map(p => ({ ...p, balance: Math.abs(p.balance) })); // Show positive number in UI for advance
+    const totalAdvances = advancesList.reduce((sum, p) => sum + p.balance, 0);
+
+    setSundryCreditors(outstandingCreditors);
     setTotalCreditorLiability(totalCreditorBal);
+    setSupplierAdvances(advancesList);
+    setTotalSupplierAdvances(totalAdvances);
   };
 
   const handleOpenAssetCreate = () => {
@@ -629,33 +611,43 @@ export const AssetsLoans: React.FC = () => {
         </div>
       </div>
 
-      {/* 🛒 OUTSTANDING CREDITORS FOR PURCHASE SUMMARY CARD (CLICKABLE FOR DETAILS) */}
-      <div 
-        onClick={() => setShowCreditorsModal(true)}
-        className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent bg-white dark:bg-slate-800 p-6 rounded-3xl border border-amber-200/80 dark:border-amber-700/60 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer hover:border-amber-400 hover:shadow-md transition group"
-      >
-        <div className="flex items-center space-x-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 font-black flex items-center justify-center text-xl group-hover:scale-110 transition">
-            🛒
+      {/* 🛒 OUTSTANDING CREDITORS & ADVANCES SUMMARY CARDS (CLICKABLE FOR DETAILS) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+        <div 
+          onClick={() => setShowCreditorsModal(true)}
+          className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent bg-white dark:bg-slate-800 p-6 rounded-3xl border border-amber-200/80 dark:border-amber-700/60 shadow-sm flex flex-col justify-between items-start gap-4 cursor-pointer hover:border-amber-400 hover:shadow-md transition group"
+        >
+          <div className="flex items-center space-x-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 font-black flex items-center justify-center text-xl group-hover:scale-110 transition">
+              🛒
+            </div>
+            <div>
+              <h3 className="font-extrabold text-amber-900 dark:text-amber-100 text-sm">{language === 'hi' ? 'लेनदार बकाया (Outstanding Creditors)' : 'Outstanding Creditors'}</h3>
+              <p className="text-[10px] text-amber-700/80 dark:text-amber-400/80 font-bold uppercase tracking-widest">{sundryCreditors.length} {language === 'hi' ? 'बकाया वेंडर्स' : 'Pending Vendors'}</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-extrabold text-slate-850 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition">
-              {language === 'hi' ? 'Outstanding Creditor for Purchase (लेनदार बकाया उधारी)' : 'Outstanding Creditors for Purchase'}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {language === 'hi'
-                ? 'क्लिक करके सभी उधारी बकाया सप्लायरों/वेंडर्स की सूची देखें (> ₹0)'
-                : 'Click to view detailed list of all pending vendor bills (> ₹0)'}
-            </p>
+          <div className="flex items-end justify-between w-full">
+            <p className="text-3xl font-black text-amber-600 dark:text-amber-400">₹{totalCreditorLiability.toLocaleString()}</p>
+            <ArrowUpRight className="text-amber-400 group-hover:text-amber-600 w-5 h-5 transition-transform group-hover:-translate-y-1 group-hover:translate-x-1" />
           </div>
         </div>
-        <div className="flex items-center space-x-4">
-          <div className="text-right">
-            <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider block">कुल लेनदार उधारी बकाया</span>
-            <span className="text-2xl font-black text-amber-600 dark:text-amber-400">₹{totalCreditorLiability.toLocaleString()}</span>
+
+        <div 
+          onClick={() => setShowAdvancesModal(true)}
+          className="bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent bg-white dark:bg-slate-800 p-6 rounded-3xl border border-emerald-200/80 dark:border-emerald-700/60 shadow-sm flex flex-col justify-between items-start gap-4 cursor-pointer hover:border-emerald-400 hover:shadow-md transition group"
+        >
+          <div className="flex items-center space-x-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-black flex items-center justify-center text-xl group-hover:scale-110 transition">
+              💸
+            </div>
+            <div>
+              <h3 className="font-extrabold text-emerald-900 dark:text-emerald-100 text-sm">{language === 'hi' ? 'सप्लायर एडवांस (Supplier Advances)' : 'Supplier Advances (Dr)'}</h3>
+              <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 font-bold uppercase tracking-widest">{supplierAdvances.length} {language === 'hi' ? 'एडवांस भुगतान' : 'Advance Payments'}</p>
+            </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-black flex items-center justify-center text-sm group-hover:translate-x-1 transition">
-            ➔
+          <div className="flex items-end justify-between w-full">
+            <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">₹{totalSupplierAdvances.toLocaleString()}</p>
+            <ArrowUpRight className="text-emerald-400 group-hover:text-emerald-600 w-5 h-5 transition-transform group-hover:-translate-y-1 group-hover:translate-x-1" />
           </div>
         </div>
       </div>
@@ -1084,6 +1076,69 @@ export const AssetsLoans: React.FC = () => {
                         <td className="py-3 px-3 font-bold">{creditor.billsCount} रिकॉर्ड्स</td>
                         <td className="py-3 px-3 font-black text-amber-600 dark:text-amber-400 text-sm text-right">
                           ₹{creditor.balance.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 💸 SUPPLIER ADVANCES DETAILS MODAL (ONLY BALANCE < 0) */}
+      {showAdvancesModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAdvancesModal(false)}>
+          <div className="bg-white dark:bg-slate-850 rounded-3xl border border-slate-200 dark:border-slate-700 max-w-3xl w-full p-6 space-y-5 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center space-x-2.5">
+                <span className="p-2 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-xl font-black text-lg">💸</span>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-850 dark:text-white">
+                    {language === 'hi' ? 'Supplier Advances (सप्लायर एडवांस विवरण)' : 'Supplier Advances Details'}
+                  </h3>
+                  <p className="text-xs text-slate-400">केवल वे सप्लायर जिन्हें एडवांस या अतिरिक्त भुगतान किया गया है</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAdvancesModal(false)} className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl text-slate-500">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-700/50 rounded-2xl flex justify-between items-center text-emerald-900 dark:text-emerald-200">
+              <span className="text-xs font-bold">कुल एडवांस भुगतान (Total Supplier Advances)</span>
+              <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">₹{totalSupplierAdvances.toLocaleString()}</span>
+            </div>
+
+            {supplierAdvances.length === 0 ? (
+              <div className="p-8 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/40 rounded-2xl text-slate-500 dark:text-slate-400 text-xs font-bold text-center">
+                ✅ कोई सप्लायर एडवांस नहीं है।
+              </div>
+            ) : (
+              <div className="max-h-96 overflow-y-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900 z-10">
+                    <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-semibold uppercase text-[10px]">
+                      <th className="py-2.5 px-3">Party / Vendor Name (विक्रेता का नाम)</th>
+                      <th className="py-2.5 px-3">Mobile (मोबाइल)</th>
+                      <th className="py-2.5 px-3">Records (लेनदेन)</th>
+                      <th className="py-2.5 px-3 text-right">Advance Amount (एडवांस राशि)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                    {supplierAdvances.map((adv, idx) => (
+                      <tr key={adv.id || idx} className="hover:bg-emerald-50/30 dark:hover:bg-slate-900/40">
+                        <td className="py-3 px-3 font-extrabold text-slate-850 dark:text-white flex items-center space-x-2">
+                          <span className="w-7 h-7 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 font-black flex items-center justify-center text-xs">
+                            {adv.name.charAt(0).toUpperCase()}
+                          </span>
+                          <span>{adv.name}</span>
+                        </td>
+                        <td className="py-3 px-3 font-mono">{adv.phone || '—'}</td>
+                        <td className="py-3 px-3 font-bold">{adv.billsCount} रिकॉर्ड्स</td>
+                        <td className="py-3 px-3 font-black text-emerald-600 dark:text-emerald-400 text-sm text-right">
+                          ₹{adv.balance.toLocaleString()} (Dr)
                         </td>
                       </tr>
                     ))}
