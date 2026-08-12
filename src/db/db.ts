@@ -272,7 +272,7 @@ export class GoshalaDB {
 
         if (vouchersMigrated || typesMigrated || v21Migrated) {
           setStorageItem('goshala_erp_vouchers', migratedVouchers);
-          syncTableToFirestore('vouchers', migratedVouchers);
+          // Removed syncTableToFirestore here to prevent stale local data from overwriting cloud on hard refresh
         }
       }
       
@@ -595,9 +595,9 @@ export class GoshalaDB {
       }
     });
 
-    // Save updated current balances for ledgers and bank accounts to LocalStorage
-    this.saveTable('ledgers', ledgers);
-    this.saveTable('bank_accounts', bankAccounts);
+    // Save updated current balances for ledgers and bank accounts to LocalStorage ONLY (Do not force push derived data to Firebase)
+    setStorageItem('goshala_erp_ledgers', ledgers);
+    setStorageItem('goshala_erp_bank_accounts', bankAccounts);
 
     // Sync Loans table outstanding amounts from accounting ledger postings
     const loans = this.getTable<Loan>('loans');
@@ -623,11 +623,10 @@ export class GoshalaDB {
         loan.outstandingAmount = Math.max(0, loan.principalAmount - totalRepaid);
       }
     });
-
-    this.saveTable('ledgers', ledgers);
-    this.saveTable('cost_centers', costCenters);
-    this.saveTable('bank_accounts', bankAccounts);
-    this.saveTable('loans', loans);
+    setStorageItem('goshala_erp_ledgers', ledgers);
+    setStorageItem('goshala_erp_cost_centers', costCenters);
+    setStorageItem('goshala_erp_bank_accounts', bankAccounts);
+    setStorageItem('goshala_erp_loans', loans);
   }
 
   // Voucher operations
