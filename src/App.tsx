@@ -269,7 +269,17 @@ const MainAppContent: React.FC = () => {
       case 'reports':
         return <AccountingReports />;
       case 'settings':
-        return <Settings />;
+        return <Settings defaultTab="org" />;
+      case 'master-parties':
+        return <Settings defaultTab="parties" />;
+      case 'master-coa':
+        return <Settings defaultTab="ledgers" />;
+      case 'master-costcenters':
+        return <Settings defaultTab="cost_centers" />;
+      case 'master-paymodes':
+        return <Settings defaultTab="pay_modes" />;
+      case 'master-tax':
+        return <Settings defaultTab="tax" />;
       default:
         return <Dashboard />;
     }

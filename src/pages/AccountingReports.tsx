@@ -391,30 +391,30 @@ export const AccountingReports: React.FC = () => {
           return (
             <div className="space-y-4">
               <div className="overflow-x-auto w-full">
-                <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+                <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
                   <thead>
-                    <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
-                      <th className="pb-3">{language === 'hi' ? 'खाता कोड' : 'Account Code'}</th>
-                      <th className="pb-3">{language === 'hi' ? 'खाता नाम' : 'Ledger Name'}</th>
-                      <th className="pb-3">{language === 'hi' ? 'समूह श्रेणी' : 'Group Division'}</th>
-                      <th className="pb-3 text-right">{language === 'hi' ? 'डेबिट शेष (Dr)' : 'Debit Bal (Dr)'}</th>
-                      <th className="pb-3 text-right">{language === 'hi' ? 'क्रेडिट शेष (Cr)' : 'Credit Bal (Cr)'}</th>
+                    <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-900/40">
+                      <th className="py-3 px-4 rounded-tl-xl">{language === 'hi' ? 'खाता कोड' : 'Account Code'}</th>
+                      <th className="py-3 px-3">{language === 'hi' ? 'खाता नाम' : 'Ledger Name'}</th>
+                      <th className="py-3 px-3">{language === 'hi' ? 'समूह श्रेणी' : 'Group Division'}</th>
+                      <th className="py-3 px-3 text-right">{language === 'hi' ? 'डेबिट शेष (Dr)' : 'Debit Bal (Dr)'}</th>
+                      <th className="py-3 pr-4 text-right rounded-tr-xl">{language === 'hi' ? 'क्रेडिट शेष (Cr)' : 'Credit Bal (Cr)'}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">
                     {rows.map(r => (
-                      <tr key={r.id} className={r.isSystem ? 'font-medium' : ''}>
-                        <td className="py-3">{r.code}</td>
-                        <td className="py-3 font-semibold text-slate-800 dark:text-slate-250">{formatBilingual(r.name, language)}</td>
-                        <td className="py-3 text-slate-400">{language === 'hi' ? 'सामान्य खाता' : 'General Account'}</td>
-                        <td className="py-3 text-right font-bold">{r.debit > 0 ? `₹${r.debit.toLocaleString()}` : '—'}</td>
-                        <td className="py-3 text-right font-bold">{r.credit > 0 ? `₹${r.credit.toLocaleString()}` : '—'}</td>
+                      <tr key={r.id} className={`${r.isSystem ? 'font-semibold' : ''} hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group`}>
+                        <td className="py-4 px-4 font-mono text-slate-500">{r.code}</td>
+                        <td className="py-4 px-3 font-bold text-slate-800 dark:text-slate-200">{formatBilingual(r.name, language)}</td>
+                        <td className="py-4 px-3 text-slate-500">{language === 'hi' ? 'सामान्य खाता' : 'General Account'}</td>
+                        <td className="py-4 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">{r.debit > 0 ? `₹${r.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}</td>
+                        <td className="py-4 pr-4 text-right font-black text-rose-600 dark:text-rose-400">{r.credit > 0 ? `₹${r.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}</td>
                       </tr>
                     ))}
-                    <tr className="border-t-2 border-double border-slate-200 dark:border-slate-600 font-extrabold text-sm text-slate-850 dark:text-white">
-                      <td colSpan={3} className="py-4">{language === 'hi' ? 'ट्रायल बैलेंस कुल योग' : 'Trial Balance Totals'}</td>
-                      <td className="py-4 text-right text-forest-600">₹{debitTotal.toLocaleString()}</td>
-                      <td className="py-4 text-right text-forest-600">₹{creditTotal.toLocaleString()}</td>
+                    <tr className="bg-slate-50 dark:bg-slate-900/60 font-black border-t-2 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs">
+                      <td colSpan={3} className="py-4 px-4 text-right font-extrabold uppercase tracking-widest rounded-bl-xl">{language === 'hi' ? 'ट्रायल बैलेंस कुल योग' : 'Trial Balance Totals'}</td>
+                      <td className="py-4 px-3 text-right text-emerald-600 dark:text-emerald-400">₹{debitTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 pr-4 text-right text-rose-600 dark:text-rose-400 rounded-br-xl">₹{creditTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -433,36 +433,38 @@ export const AccountingReports: React.FC = () => {
         {/* REPORT 2: DAY BOOK */}
         {selectedReport === 'day_book' && (
           <div className="overflow-x-auto w-full">
-            <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+            <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
               <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
-                  <th className="pb-3">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
-                  <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
-                  <th className="pb-3">{language === 'hi' ? 'खाता प्रविष्टियां' : 'Ledger Entries'}</th>
-                  <th className="pb-3">{language === 'hi' ? 'विवरण' : 'Narration Remarks'}</th>
-                  <th className="pb-3 text-right">{language === 'hi' ? 'डेबिट (Dr)' : 'Debit'}</th>
-                  <th className="pb-3 text-right">{language === 'hi' ? 'क्रेडिट (Cr)' : 'Credit'}</th>
+                <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-900/40">
+                  <th className="py-3 px-4 rounded-tl-xl">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                  <th className="py-3 px-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
+                  <th className="py-3 px-3">{language === 'hi' ? 'खाता प्रविष्टियां' : 'Ledger Entries'}</th>
+                  <th className="py-3 px-3">{language === 'hi' ? 'विवरण' : 'Narration Remarks'}</th>
+                  <th className="py-3 px-3 text-right">{language === 'hi' ? 'डेबिट (Dr)' : 'Debit'}</th>
+                  <th className="py-3 pr-4 text-right rounded-tr-xl">{language === 'hi' ? 'क्रेडिट (Cr)' : 'Credit'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">
                 {getDayBookVouchers().map(v => (
-                  <tr key={v.id}>
-                    <td className="py-4 font-bold text-slate-800 dark:text-slate-100">{v.voucherNumber}</td>
-                    <td className="py-4">{v.date}</td>
-                    <td className="py-4 space-y-1 max-w-xs">
+                  <tr key={v.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group">
+                    <td className="py-4 px-4 font-bold text-slate-900 dark:text-white">{v.voucherNumber}</td>
+                    <td className="py-4 px-3 font-medium whitespace-nowrap">{new Date(v.date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                    <td className="py-4 px-3 space-y-1 max-w-[250px]">
                       {v.entries.map((e, idx) => (
-                        <div key={idx} className="flex justify-between">
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">{formatBilingual(getLedgerName(e.ledgerId), language)}</span>
-                          <span className="text-slate-400 font-mono">({e.isDebit ? 'Dr' : 'Cr'})</span>
+                        <div key={idx} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 px-2 py-1 rounded">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate pr-2">{formatBilingual(getLedgerName(e.ledgerId), language)}</span>
+                          <span className={`font-black text-[10px] ${e.isDebit ? 'text-emerald-600' : 'text-rose-600'}`}>({e.isDebit ? 'Dr' : 'Cr'})</span>
                         </div>
                       ))}
                     </td>
-                    <td className="py-4 text-slate-500 max-w-xs truncate" title={v.narration}>{v.narration}</td>
-                    <td className="py-4 text-right font-bold text-forest-600">
-                      ₹{v.entries.filter(e => e.isDebit).reduce((s, e) => s + e.amount, 0).toLocaleString()}
+                    <td className="py-4 px-3 text-slate-600 dark:text-slate-400 max-w-[200px]" title={v.narration}>
+                      <span className="line-clamp-2">{v.narration}</span>
                     </td>
-                    <td className="py-4 text-right font-bold text-saffron-600">
-                      ₹{v.entries.filter(e => !e.isDebit).reduce((s, e) => s + e.amount, 0).toLocaleString()}
+                    <td className="py-4 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">
+                      ₹{v.entries.filter(e => e.isDebit).reduce((s, e) => s + e.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-4 pr-4 text-right font-black text-rose-600 dark:text-rose-400">
+                      ₹{v.entries.filter(e => !e.isDebit).reduce((s, e) => s + e.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
                 ))}
@@ -485,26 +487,26 @@ export const AccountingReports: React.FC = () => {
               </select>
             </div>
             <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+              <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
                 <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
-                    <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
-                    <th className="pb-3">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
-                    <th className="pb-3">{language === 'hi' ? 'खाता विवरण' : 'Particulars (Contra Accounts)'}</th>
-                    <th className="pb-3 text-right">{language === 'hi' ? 'डेबिट (Dr)' : 'Debit (Dr)'}</th>
-                    <th className="pb-3 text-right">{language === 'hi' ? 'क्रेडिट (Cr)' : 'Credit (Cr)'}</th>
-                    <th className="pb-3 text-right">{language === 'hi' ? 'शेष (Balance)' : 'Balance'}</th>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-900/40">
+                    <th className="py-3 px-4 rounded-tl-xl">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
+                    <th className="py-3 px-3">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                    <th className="py-3 px-3">{language === 'hi' ? 'खाता विवरण' : 'Particulars (Contra Accounts)'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'hi' ? 'डेबिट (Dr)' : 'Debit (Dr)'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'hi' ? 'क्रेडिट (Cr)' : 'Credit (Cr)'}</th>
+                    <th className="py-3 pr-4 text-right rounded-tr-xl">{language === 'hi' ? 'शेष (Balance)' : 'Balance'}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">
                   {getLedgerStatement(targetLedgerId).map((entry, idx) => (
-                    <tr key={idx}>
-                      <td className="py-3">{entry.date}</td>
-                      <td className="py-3 font-bold">{entry.voucherNo}</td>
-                      <td className="py-3 font-semibold text-slate-800 dark:text-slate-200">{formatBilingual(entry.particulars, language)}</td>
-                      <td className="py-3 text-right font-bold text-forest-600">{entry.debit > 0 ? `₹${entry.debit.toLocaleString()}` : '—'}</td>
-                      <td className="py-3 text-right font-bold text-saffron-600">{entry.credit > 0 ? `₹${entry.credit.toLocaleString()}` : '—'}</td>
-                      <td className="py-3 text-right font-bold text-slate-800 dark:text-white">₹{entry.balance.toLocaleString()}</td>
+                    <tr key={idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group">
+                      <td className="py-4 px-4 font-medium whitespace-nowrap">{entry.date === 'Opening' ? 'Opening' : new Date(entry.date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                      <td className="py-4 px-3 font-bold text-slate-900 dark:text-white">{entry.voucherNo}</td>
+                      <td className="py-4 px-3 font-semibold text-slate-800 dark:text-slate-200 max-w-[200px] truncate" title={entry.particulars}>{formatBilingual(entry.particulars, language)}</td>
+                      <td className="py-4 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">{entry.debit > 0 ? `₹${entry.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}</td>
+                      <td className="py-4 px-3 text-right font-black text-rose-600 dark:text-rose-400">{entry.credit > 0 ? `₹${entry.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}</td>
+                      <td className="py-4 pr-4 text-right font-black text-slate-900 dark:text-white">₹{entry.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -722,100 +724,100 @@ export const AccountingReports: React.FC = () => {
 
         {/* REPORT 6: DEPRECIATION REGISTER */}
         {selectedReport === 'depreciation' && (
-          <div className="space-y-4">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
-                  <th className="pb-3">Fixed Asset Name</th>
-                  <th className="pb-3">Purchase Cost (₹)</th>
-                  <th className="pb-3">Useful Life / Rate</th>
-                  <th className="pb-3">Annual Depreciation (₹)</th>
-                  <th className="pb-3 text-right">Written Down Value (₹)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
-                {getFixedAssets().map(fa => (
-                  <tr key={fa.id}>
-                    <td className="py-3.5 font-semibold text-slate-850 dark:text-slate-200">{fa.name}</td>
-                    <td className="py-3.5 font-bold">₹{fa.cost.toLocaleString()}</td>
-                    <td className="py-3.5 text-slate-400">{fa.deprRate}</td>
-                    <td className="py-3.5 font-bold text-red-500">-₹{fa.deprValue.toLocaleString()}</td>
-                    <td className="py-3.5 text-right font-black text-forest-600">₹{fa.currentValue.toLocaleString()}</td>
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-900/40">
+                    <th className="py-3 px-4 rounded-tl-xl">Fixed Asset Name</th>
+                    <th className="py-3 px-3">Purchase Cost (₹)</th>
+                    <th className="py-3 px-3">Useful Life / Rate</th>
+                    <th className="py-3 px-3">Annual Depreciation (₹)</th>
+                    <th className="py-3 pr-4 text-right rounded-tr-xl">Written Down Value (₹)</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">
+                  {getFixedAssets().map(fa => (
+                    <tr key={fa.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group">
+                      <td className="py-4 px-4 font-bold text-slate-900 dark:text-white">{fa.name}</td>
+                      <td className="py-4 px-3 font-semibold text-slate-800 dark:text-slate-200">₹{fa.cost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-3 text-slate-500 font-medium">{fa.deprRate}</td>
+                      <td className="py-4 px-3 font-bold text-rose-500">-₹{fa.deprValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 pr-4 text-right font-black text-emerald-600 dark:text-emerald-400">₹{fa.currentValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
         )}
 
         {/* REPORT 7: DONATION REGISTER */}
         {selectedReport === 'donation_register' && (
-          <div className="space-y-4">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
-                  <th className="pb-3">Receipt Number</th>
-                  <th className="pb-3">Donor Name</th>
-                  <th className="pb-3">Payment Mode</th>
-                  <th className="pb-3">Purpose Target</th>
-                  <th className="pb-3">Exemption (80G)</th>
-                  <th className="pb-3 text-right">Amount (₹)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
-                {vouchers.filter(v => v.entries.some(e => e.ledgerId.startsWith('l-inc-donation'))).map(v => {
-                  const amt = v.entries.filter(e => e.isDebit).reduce((s, e) => s + e.amount, 0);
-                  const isFeed = v.entries.some(e => e.ledgerId === 'l-inc-donation-feed');
-                  
-                  return (
-                    <tr key={v.id}>
-                      <td className="py-3.5 font-bold text-slate-800 dark:text-slate-100">{v.voucherNumber}</td>
-                      <td className="py-3.5 font-semibold">Rajesh Kumar Singhal</td>
-                      <td className="py-3.5">BANK UPI</td>
-                      <td className="py-3.5">{isFeed ? 'Cow Feeding' : 'General Purpose'}</td>
-                      <td className="py-3.5 font-bold text-forest-600">YES (Certified)</td>
-                      <td className="py-3.5 text-right font-black">₹{amt.toLocaleString()}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-900/40">
+                    <th className="py-3 px-4 rounded-tl-xl">Receipt Number</th>
+                    <th className="py-3 px-3">Donor Name</th>
+                    <th className="py-3 px-3">Payment Mode</th>
+                    <th className="py-3 px-3">Purpose Target</th>
+                    <th className="py-3 px-3">Exemption (80G)</th>
+                    <th className="py-3 pr-4 text-right rounded-tr-xl">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">
+                  {vouchers.filter(v => v.entries.some(e => e.ledgerId.startsWith('l-inc-donation'))).map(v => {
+                    const amt = v.entries.filter(e => e.isDebit).reduce((s, e) => s + e.amount, 0);
+                    const isFeed = v.entries.some(e => e.ledgerId === 'l-inc-donation-feed');
+                    
+                    return (
+                      <tr key={v.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group">
+                        <td className="py-4 px-4 font-bold text-slate-900 dark:text-white">{v.voucherNumber}</td>
+                        <td className="py-4 px-3 font-semibold text-slate-800 dark:text-slate-200">Rajesh Kumar Singhal</td>
+                        <td className="py-4 px-3 font-mono text-indigo-600 dark:text-indigo-400 font-bold">BANK UPI</td>
+                        <td className="py-4 px-3 text-slate-600 dark:text-slate-400 font-medium">{isFeed ? 'Cow Feeding' : 'General Purpose'}</td>
+                        <td className="py-4 px-3 font-bold text-emerald-600 dark:text-emerald-400">YES (Certified)</td>
+                        <td className="py-4 pr-4 text-right font-black text-emerald-600 dark:text-emerald-400">₹{amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
         )}
 
         {/* REPORT 8: CATEGORY WISE REPORT */}
         {selectedReport === 'category_wise' && (
           <div className="space-y-4">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
                 <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
-                    <th className="pb-3">Code</th>
-                    <th className="pb-3">Category / Ledger Name</th>
-                    <th className="pb-3">Type</th>
-                    <th className="pb-3 text-right">Opening Bal (₹)</th>
-                    <th className="pb-3 text-right">Debit / Outflows (₹)</th>
-                    <th className="pb-3 text-right">Credit / Inflows (₹)</th>
-                    <th className="pb-3 text-right">Closing Balance (₹)</th>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-900/40">
+                    <th className="py-3 px-4 rounded-tl-xl">Code</th>
+                    <th className="py-3 px-3">Category / Ledger Name</th>
+                    <th className="py-3 px-3">Type</th>
+                    <th className="py-3 px-3 text-right">Opening Bal (₹)</th>
+                    <th className="py-3 px-3 text-right">Debit / Outflows (₹)</th>
+                    <th className="py-3 px-3 text-right">Credit / Inflows (₹)</th>
+                    <th className="py-3 pr-4 text-right rounded-tr-xl">Closing Balance (₹)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">
                   {getCategoryWiseReport().map(cat => (
-                    <tr key={cat.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10">
-                      <td className="py-3 font-bold text-slate-800 dark:text-slate-200">{cat.code}</td>
-                      <td className="py-3 font-semibold">{cat.name}</td>
-                      <td className="py-3">
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-black ${
-                          cat.type === 'EXPENSE' ? 'bg-red-50 text-red-600' :
-                          cat.type === 'INCOME' ? 'bg-forest-550/10 text-forest-650' : 'bg-slate-50 text-slate-600'
+                    <tr key={cat.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group">
+                      <td className="py-4 px-4 font-mono text-slate-500">{cat.code}</td>
+                      <td className="py-4 px-3 font-bold text-slate-900 dark:text-white">{cat.name}</td>
+                      <td className="py-4 px-3">
+                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-black tracking-wide ${
+                          cat.type === 'EXPENSE' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400' :
+                          cat.type === 'INCOME' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                         }`}>
                           {cat.type}
                         </span>
                       </td>
-                      <td className="py-3 text-right font-bold">₹{cat.openingBalance.toLocaleString()}</td>
-                      <td className="py-3 text-right font-bold text-red-550">₹{cat.totalDebits.toLocaleString()}</td>
-                      <td className="py-3 text-right font-bold text-forest-650">₹{cat.totalCredits.toLocaleString()}</td>
-                      <td className="py-3 text-right font-black text-slate-850 dark:text-white">₹{cat.closingBalance.toLocaleString()}</td>
+                      <td className="py-4 px-3 text-right font-semibold text-slate-600 dark:text-slate-400">₹{cat.openingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-3 text-right font-bold text-rose-500">₹{cat.totalDebits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">₹{cat.totalCredits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 pr-4 text-right font-black text-slate-900 dark:text-white">₹{cat.closingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -880,30 +882,32 @@ export const AccountingReports: React.FC = () => {
               {language === 'hi' ? 'सक्रिय बैंक खाते एवं लेन-देन' : 'Active Bank Book Transactions'}
             </h4>
             <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+              <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
                 <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
-                    <th className="pb-3 pl-2">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
-                    <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
-                    <th className="pb-3">{language === 'hi' ? 'बैंक खाता' : 'Bank Account'}</th>
-                    <th className="pb-3">{language === 'hi' ? 'विवरण' : 'Particulars'}</th>
-                    <th className="pb-3 text-right">{language === 'hi' ? 'आवक (Debit)' : 'Bank In (Dr)'}</th>
-                    <th className="pb-3 text-right">{language === 'hi' ? 'जावक (Credit)' : 'Bank Out (Cr)'}</th>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-900/40">
+                    <th className="py-3 px-4 rounded-tl-xl">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                    <th className="py-3 px-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
+                    <th className="py-3 px-3">{language === 'hi' ? 'बैंक खाता' : 'Bank Account'}</th>
+                    <th className="py-3 px-3">{language === 'hi' ? 'विवरण' : 'Particulars'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'hi' ? 'आवक (Debit)' : 'Bank In (Dr)'}</th>
+                    <th className="py-3 pr-4 text-right rounded-tr-xl">{language === 'hi' ? 'जावक (Credit)' : 'Bank Out (Cr)'}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">
                   {vouchers.filter(v => v.status === 'POSTED' && v.entries.some(e => e.ledgerId !== 'l-cash' && ledgers.find(l => l.id === e.ledgerId)?.groupId === 'g-current-assets')).map(v => {
                     const bankEntry = v.entries.find(e => e.ledgerId !== 'l-cash' && ledgers.find(l => l.id === e.ledgerId)?.groupId === 'g-current-assets');
                     if (!bankEntry) return null;
                     const bankL = ledgers.find(l => l.id === bankEntry.ledgerId);
                     return (
-                      <tr key={v.id}>
-                        <td className="py-3 pl-2 font-bold">{v.voucherNumber}</td>
-                        <td className="py-3">{v.date}</td>
-                        <td className="py-3 font-bold text-forest-650">{formatBilingual(bankL?.name || '', language)}</td>
-                        <td className="py-3">{v.narration}</td>
-                        <td className="py-3 text-right font-bold text-forest-600">{bankEntry.isDebit ? `₹${bankEntry.amount.toLocaleString()}` : '—'}</td>
-                        <td className="py-3 text-right font-bold text-red-500">{!bankEntry.isDebit ? `₹${bankEntry.amount.toLocaleString()}` : '—'}</td>
+                      <tr key={v.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group">
+                        <td className="py-4 px-4 font-bold text-slate-900 dark:text-white">{v.voucherNumber}</td>
+                        <td className="py-4 px-3 font-medium whitespace-nowrap">{new Date(v.date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                        <td className="py-4 px-3 font-bold text-slate-800 dark:text-slate-200">{formatBilingual(bankL?.name || '', language)}</td>
+                        <td className="py-4 px-3 text-slate-600 dark:text-slate-400 max-w-[200px]" title={v.narration}>
+                          <span className="line-clamp-2">{v.narration}</span>
+                        </td>
+                        <td className="py-4 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">{bankEntry.isDebit ? `₹${bankEntry.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}</td>
+                        <td className="py-4 pr-4 text-right font-black text-rose-600 dark:text-rose-400">{!bankEntry.isDebit ? `₹${bankEntry.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}</td>
                       </tr>
                     );
                   })}
@@ -920,27 +924,29 @@ export const AccountingReports: React.FC = () => {
               {language === 'hi' ? 'नकद बही खाता (Cash Book Register)' : 'Cash Book Transaction Register'}
             </h4>
             <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+              <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
                 <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
-                    <th className="pb-3 pl-2">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
-                    <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
-                    <th className="pb-3">{language === 'hi' ? 'विवरण' : 'Particulars'}</th>
-                    <th className="pb-3 text-right">{language === 'hi' ? 'नकद आवक (In)' : 'Cash In (Dr)'}</th>
-                    <th className="pb-3 text-right">{language === 'hi' ? 'नकद जावक (Out)' : 'Cash Out (Cr)'}</th>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-900/40">
+                    <th className="py-3 px-4 rounded-tl-xl">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                    <th className="py-3 px-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
+                    <th className="py-3 px-3">{language === 'hi' ? 'विवरण' : 'Particulars'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'hi' ? 'नकद आवक (In)' : 'Cash In (Dr)'}</th>
+                    <th className="py-3 pr-4 text-right rounded-tr-xl">{language === 'hi' ? 'नकद जावक (Out)' : 'Cash Out (Cr)'}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">
                   {vouchers.filter(v => v.status === 'POSTED' && v.entries.some(e => e.ledgerId === 'l-cash')).map(v => {
                     const cashEntry = v.entries.find(e => e.ledgerId === 'l-cash');
                     if (!cashEntry) return null;
                     return (
-                      <tr key={v.id}>
-                        <td className="py-3 pl-2 font-bold">{v.voucherNumber}</td>
-                        <td className="py-3">{v.date}</td>
-                        <td className="py-3">{v.narration}</td>
-                        <td className="py-3 text-right font-bold text-forest-600">{cashEntry.isDebit ? `₹${cashEntry.amount.toLocaleString()}` : '—'}</td>
-                        <td className="py-3 text-right font-bold text-red-500">{!cashEntry.isDebit ? `₹${cashEntry.amount.toLocaleString()}` : '—'}</td>
+                      <tr key={v.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group">
+                        <td className="py-4 px-4 font-bold text-slate-900 dark:text-white">{v.voucherNumber}</td>
+                        <td className="py-4 px-3 font-medium whitespace-nowrap">{new Date(v.date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                        <td className="py-4 px-3 text-slate-600 dark:text-slate-400 max-w-[200px]" title={v.narration}>
+                          <span className="line-clamp-2">{v.narration}</span>
+                        </td>
+                        <td className="py-4 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">{cashEntry.isDebit ? `₹${cashEntry.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}</td>
+                        <td className="py-4 pr-4 text-right font-black text-rose-600 dark:text-rose-400">{!cashEntry.isDebit ? `₹${cashEntry.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}</td>
                       </tr>
                     );
                   })}
@@ -957,22 +963,22 @@ export const AccountingReports: React.FC = () => {
               {language === 'hi' ? 'बकाया ऋण रिपोर्ट (Outstanding Loans & Liabilities)' : 'Outstanding Loan Liability Report'}
             </h4>
             <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+              <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
                 <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase">
-                    <th className="pb-3 pl-2">{language === 'hi' ? 'ऋणदाता बैंक / संस्था' : 'Lender Institution'}</th>
-                    <th className="pb-3">{language === 'hi' ? 'ब्याज दर (%)' : 'Interest Rate'}</th>
-                    <th className="pb-3 text-right">{language === 'hi' ? 'स्वीकृत मूलधन' : 'Principal Amount'}</th>
-                    <th className="pb-3 text-right">{language === 'hi' ? 'बकाया राशि' : 'Outstanding Balance'}</th>
+                  <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-900/40">
+                    <th className="py-3 px-4 rounded-tl-xl">{language === 'hi' ? 'ऋणदाता बैंक / संस्था' : 'Lender Institution'}</th>
+                    <th className="py-3 px-3">{language === 'hi' ? 'ब्याज दर (%)' : 'Interest Rate'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'hi' ? 'स्वीकृत मूलधन' : 'Principal Amount'}</th>
+                    <th className="py-3 pr-4 text-right rounded-tr-xl">{language === 'hi' ? 'बकाया राशि' : 'Outstanding Balance'}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">
                   {GoshalaDB.getTable<any>('loans').map((loan: any) => (
-                    <tr key={loan.id}>
-                      <td className="py-3 pl-2 font-bold text-slate-850 dark:text-white">{loan.partyName}</td>
-                      <td className="py-3">{loan.interestRate}% p.a.</td>
-                      <td className="py-3 text-right font-bold">₹{loan.principalAmount.toLocaleString()}</td>
-                      <td className="py-3 text-right font-black text-red-600">₹{loan.outstandingAmount.toLocaleString()}</td>
+                    <tr key={loan.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group">
+                      <td className="py-4 px-4 font-bold text-slate-900 dark:text-white">{loan.partyName}</td>
+                      <td className="py-4 px-3 font-semibold text-slate-500">{loan.interestRate}% p.a.</td>
+                      <td className="py-4 px-3 text-right font-bold text-slate-800 dark:text-slate-200">₹{loan.principalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 pr-4 text-right font-black text-rose-600 dark:text-rose-400">₹{loan.outstandingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                 </tbody>

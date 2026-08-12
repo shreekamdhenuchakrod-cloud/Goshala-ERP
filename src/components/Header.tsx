@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
 import { GoshalaDB } from '../db/db';
 import { FinancialYear } from '../db/schema';
-import { Sun, Moon, Bell, Globe, Menu, LogOut, CloudCheck, CloudOff, RefreshCw } from 'lucide-react';
+import { Sun, Moon, Bell, Globe, Menu, LogOut, CloudCheck, CloudOff, RefreshCw, Search } from 'lucide-react';
 
 interface HeaderProps {
   darkMode: boolean;
@@ -87,19 +87,35 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleM
           <Menu className="w-6 h-6" />
         </button>
 
-        <div className="flex items-center space-x-1.5">
-          <span className="hidden sm:inline text-[11px] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">{t('active_financial_year')}:</span>
+        <div className="flex items-center space-x-1.5 ml-2">
           <select
             value={activeFy}
             onChange={(e) => handleFyChange(e.target.value)}
-            className="bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-forest-500 max-w-[130px] sm:max-w-none"
+            className="bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 border-none rounded-lg px-2.5 py-1 text-xs font-extrabold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 max-w-[130px] sm:max-w-none cursor-pointer transition-colors"
           >
             {fys.map(fy => (
               <option key={fy.id} value={fy.id}>
-                FY {fy.name}
+                {fy.name.replace('fy-', 'FY ')}
               </option>
             ))}
           </select>
+        </div>
+      </div>
+
+      {/* Center: Global Search */}
+      <div className="hidden md:flex flex-1 max-w-md mx-4">
+        <div className="relative w-full group">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-teal-500 transition-colors">
+            <Search className="h-4 w-4" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search anything..."
+            className="block w-full pl-10 pr-12 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg leading-5 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:ring-1 focus:ring-teal-500 focus:border-teal-500 sm:text-sm transition-all shadow-xs"
+          />
+          <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+            <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">Ctrl+K</span>
+          </div>
         </div>
       </div>
 
@@ -185,25 +201,24 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleM
           )}
         </div>
 
-        {/* Profile & Logout */}
+        {/* Profile & Dropdown */}
         <div className="flex items-center space-x-2 pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-700">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-saffron-500 to-forest-500 text-white flex items-center justify-center font-bold text-xs uppercase shadow-xs">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-900 dark:bg-slate-700 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
             {user.name.charAt(0)}
           </div>
-          <div className="hidden xl:block text-left">
+          <div className="hidden xl:block text-left mr-2">
             <p className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-none">{user.name}</p>
-            <span className="text-[9px] text-forest-600 dark:text-forest-400 font-semibold uppercase tracking-wider block mt-0.5">
-              {language === 'hi' ? 'गौशाला कोषाध्यक्ष' : 'Goshala Treasurer'}
+            <span className="text-[9px] text-teal-600 dark:text-teal-400 font-semibold uppercase tracking-wider block mt-0.5">
+              {user.role || 'Administrator'}
             </span>
           </div>
           {onLogout && (
             <button
               onClick={onLogout}
-              className="p-1.5 sm:p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition font-bold flex items-center text-xs space-x-1"
-              title="Logout / Terminal Lock (लॉगआउट)"
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors flex items-center justify-center"
+              title="Logout"
             >
               <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline text-xs font-bold">Logout</span>
             </button>
           )}
         </div>

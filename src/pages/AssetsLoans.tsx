@@ -794,30 +794,30 @@ export const AssetsLoans: React.FC = () => {
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-xs border-collapse min-w-[700px]">
             <thead>
-              <tr className="border-b border-slate-100 dark:border-slate-750 text-slate-400 font-semibold uppercase tracking-wider">
-                <th className="pb-3 pl-2">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
-                <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
-                <th className="pb-3">{language === 'hi' ? 'ऋण विवरण / टिप्पणी' : 'Loan Particulars / Remarks'}</th>
-                <th className="pb-3">{language === 'hi' ? 'भुगतान मोड' : 'Payment Mode'}</th>
-                <th className="pb-3 text-right">{language === 'hi' ? 'भुगतान राशि (₹)' : 'Total Paid (₹)'}</th>
+              <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-900/40">
+                <th className="py-3 px-4 rounded-tl-xl">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                <th className="py-3 px-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
+                <th className="py-3 px-3">{language === 'hi' ? 'ऋण विवरण / टिप्पणी' : 'Loan Particulars / Remarks'}</th>
+                <th className="py-3 px-3">{language === 'hi' ? 'भुगतान मोड' : 'Payment Mode'}</th>
+                <th className="py-3 pr-4 text-right rounded-tr-xl">{language === 'hi' ? 'भुगतान राशि (₹)' : 'Total Paid (₹)'}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-750 dark:text-slate-350">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">
               {repayVouchers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-slate-400 italic">
+                  <td colSpan={5} className="py-8 text-center text-slate-400 italic font-semibold">
                     {language === 'hi' ? 'कोई ऋण भुगतान प्रविष्टि नहीं पाई गई।' : 'No loan repayment entries recorded yet.'}
                   </td>
                 </tr>
               ) : repayVouchers.map(v => {
                 const totalAmt = v.entries.filter(e => e.isDebit).reduce((s, e) => s + e.amount, 0);
                 return (
-                  <tr key={v.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-colors">
-                    <td className="py-3 pl-2 font-bold text-slate-850 dark:text-slate-150">{v.voucherNumber}</td>
-                    <td className="py-3">{v.date}</td>
-                    <td className="py-3 font-semibold text-slate-700 dark:text-slate-300">{v.narration}</td>
-                    <td className="py-3 font-mono font-bold text-indigo-650">{v.paymentMode || 'BANK_UPI'}</td>
-                    <td className="py-3 text-right font-black text-forest-650">₹{totalAmt.toLocaleString()}</td>
+                  <tr key={v.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group">
+                    <td className="py-4 px-4 font-bold text-slate-900 dark:text-white">{v.voucherNumber}</td>
+                    <td className="py-4 px-3 font-medium whitespace-nowrap">{new Date(v.date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                    <td className="py-4 px-3 font-semibold text-slate-700 dark:text-slate-300">{v.narration}</td>
+                    <td className="py-4 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">{v.paymentMode || 'BANK_UPI'}</td>
+                    <td className="py-4 pr-4 text-right font-black text-emerald-600 dark:text-emerald-400">₹{totalAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                   </tr>
                 );
               })}

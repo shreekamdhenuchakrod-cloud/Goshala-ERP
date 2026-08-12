@@ -1329,13 +1329,13 @@ export const VoucherSystem: React.FC = () => {
 
           {/* Vouchers Table */}
           <div className="overflow-x-auto w-full">
-            <table className="w-full text-left text-xs border-collapse min-w-[750px]">
+            <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
               <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-750 text-slate-400 font-bold uppercase tracking-wider">
-                  <th className="pb-3 pl-3 w-8">
+                <tr className="border-b border-slate-100 dark:border-slate-750 text-slate-400 font-bold uppercase tracking-wider bg-slate-50 dark:bg-slate-900/40">
+                  <th className="py-3 pl-4 w-10 rounded-tl-xl">
                     <input
                       type="checkbox"
-                      className="rounded border-slate-300 dark:border-slate-600 cursor-pointer w-3.5 h-3.5 accent-forest-600"
+                      className="rounded border-slate-300 dark:border-slate-600 cursor-pointer w-4 h-4 accent-teal-600"
                       checked={filteredVouchers.length > 0 && selectedVoucherIds.length === filteredVouchers.length}
                       onChange={(e) => {
                         if (e.target.checked) {
@@ -1346,50 +1346,52 @@ export const VoucherSystem: React.FC = () => {
                       }}
                     />
                   </th>
-                  <th className="pb-3">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
-                  <th className="pb-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
-                  <th className="pb-3">{language === 'hi' ? 'प्रकार' : 'Type'}</th>
-                  <th className="pb-3">{language === 'hi' ? 'खर्च केंद्र' : 'Cost Center'}</th>
-                  <th className="pb-3">{language === 'hi' ? 'खाता विवरण' : 'Particulars / Ledger'}</th>
-                  <th className="pb-3">{language === 'hi' ? 'विवरण' : 'Narration'}</th>
-                  <th className="pb-3">{language === 'hi' ? 'राशि (₹)' : 'Amount (₹)'}</th>
-                  <th className="pb-3 pr-3 text-right">{language === 'hi' ? 'कार्रवाई' : 'Actions'}</th>
+                  <th className="py-3 px-3">{language === 'hi' ? 'वाउचर सं.' : 'Voucher #'}</th>
+                  <th className="py-3 px-3">{language === 'hi' ? 'दिनांक' : 'Date'}</th>
+                  <th className="py-3 px-3">{language === 'hi' ? 'प्रकार' : 'Type'}</th>
+                  <th className="py-3 px-3">Party</th>
+                  <th className="py-3 px-3">{language === 'hi' ? 'खाता विवरण' : 'Particulars / Ledger'}</th>
+                  <th className="py-3 px-3">{language === 'hi' ? 'विवरण' : 'Narration'}</th>
+                  <th className="py-3 px-3 text-right">{language === 'hi' ? 'राशि (₹)' : 'Amount (₹)'}</th>
+                  <th className="py-3 pr-4 text-right rounded-tr-xl">{language === 'hi' ? 'कार्रवाई' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-700 dark:text-slate-350">
                 {filteredVouchers.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-6 text-center text-slate-400 italic">No vouchers found matching selected query criteria.</td>
+                    <td colSpan={9} className="py-8 text-center text-slate-400 italic font-semibold">No vouchers found matching selected query criteria.</td>
                   </tr>
                 ) : filteredVouchers.map(v => {
                   const debEntry = v.entries.find(e => e.isDebit);
                   const credEntry = v.entries.find(e => !e.isDebit);
-                  const debLedgerId = debEntry?.ledgerId || '';
-                  const credLedgerId = credEntry?.ledgerId || '';
                   const debitsSum = debEntry?.amount || 0;
 
-                  let partText = '';
-                  let cashBankText = '';
+                  // Resolve Party Name
+                  let partyName = '-';
+                  const partyEntry = v.entries.find(e => e.subLedgerId);
+                  if (partyEntry) {
+                    const contacts = GoshalaDB.getTable<any>('contacts');
+                    const party = contacts.find((c: any) => c.id === partyEntry.subLedgerId);
+                    if (party) partyName = party.name;
+                  }
 
-                  if (v.voucherType === 'PAYMENT') {
-                    partText = getLedgerName(debLedgerId);
-                    cashBankText = getLedgerName(credLedgerId);
-                  } else if (v.voucherType === 'RECEIPT') {
-                    partText = getLedgerName(credLedgerId);
-                    cashBankText = getLedgerName(debLedgerId);
-                  } else {
-                    partText = getLedgerName(debLedgerId);
-                    cashBankText = getLedgerName(credLedgerId);
+                  // Main Ledger (particulars)
+                  const mainLedgerEntry = v.entries.find(e => e.isDebit) || v.entries[0];
+                  let mainLedgerName = '-';
+                  if (mainLedgerEntry) {
+                    const ledgers = GoshalaDB.getTable<any>('ledgers');
+                    const led = ledgers.find((l: any) => l.id === mainLedgerEntry.ledgerId);
+                    if (led) mainLedgerName = led.name;
                   }
 
                   const imageAttach = v.attachments && v.attachments.length > 0 ? v.attachments[0] : null;
 
                   return (
-                    <tr key={v.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                      <td className="py-4 pl-3">
+                    <tr key={v.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group">
+                      <td className="py-4 pl-4">
                         <input
                           type="checkbox"
-                          className="rounded border-slate-300 dark:border-slate-600 cursor-pointer w-3.5 h-3.5 accent-forest-600"
+                          className="rounded border-slate-300 dark:border-slate-600 cursor-pointer w-4 h-4 accent-teal-600"
                           checked={selectedVoucherIds.includes(v.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
@@ -1400,27 +1402,26 @@ export const VoucherSystem: React.FC = () => {
                           }}
                         />
                       </td>
-                      <td className="py-4 font-bold text-slate-850 dark:text-slate-200">{v.voucherNumber}</td>
-                      <td className="py-4">{v.date}</td>
-                      <td className="py-4">
-                        <span className={`px-2.5 py-0.5 rounded text-[9px] font-extrabold tracking-wider ${
-                          v.voucherType === 'RECEIPT' ? 'bg-forest-550/10 text-forest-650' :
-                          v.voucherType === 'PAYMENT' ? 'bg-saffron-550/10 text-saffron-650' :
-                          'bg-indigo-50 dark:bg-indigo-950/20 text-indigo-650'
+                      <td className="py-4 px-3 font-bold text-slate-900 dark:text-white">{v.voucherNumber}</td>
+                      <td className="py-4 px-3 font-medium whitespace-nowrap">{new Date(v.date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                      <td className="py-4 px-3">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold tracking-widest uppercase ${
+                          v.voucherType === 'RECEIPT' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                          v.voucherType === 'PAYMENT' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' :
+                          'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
                         }`}>
                           {v.voucherType}
                         </span>
                       </td>
-                      <td className="py-4 font-semibold text-slate-400">{getCostCenterName(v.costCenterId)}</td>
-                      <td className="py-4 font-bold text-slate-800 dark:text-slate-200">{partText}</td>
-                      <td className="py-4 font-semibold text-slate-450">{cashBankText}</td>
-                      <td className="py-4 max-w-[200px]" title={v.narration}>
+                      <td className="py-4 px-3 font-semibold text-slate-600 dark:text-slate-400 truncate max-w-[120px]" title={partyName}>{partyName}</td>
+                      <td className="py-4 px-3 font-bold text-slate-800 dark:text-slate-200 truncate max-w-[150px]" title={mainLedgerName}>{mainLedgerName}</td>
+                      <td className="py-4 px-3 max-w-[200px]" title={v.narration}>
                         <div className="flex items-center space-x-1.5">
                           {imageAttach && (
                             <button
                               type="button"
                               onClick={() => setLightboxImage(imageAttach)}
-                              className="p-1 text-slate-400 hover:text-forest-600 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100"
+                              className="p-1 text-slate-400 hover:text-teal-600 bg-slate-50 dark:bg-slate-800 rounded border border-slate-200"
                               title="View receipt bill image"
                             >
                               <Image className="w-3.5 h-3.5" />
@@ -1429,54 +1430,56 @@ export const VoucherSystem: React.FC = () => {
                           <span className="truncate">{v.narration}</span>
                         </div>
                       </td>
-                      <td className="py-4 font-extrabold text-slate-850 dark:text-white">₹{debitsSum.toLocaleString()}</td>
-                      <td className="py-4 text-right pr-3 space-x-1.5">
-                        <button
-                          onClick={() => setSelectedVoucher(v)}
-                          className="px-2 py-1 bg-slate-50 dark:bg-slate-700/60 hover:bg-slate-100 hover:text-forest-600 text-slate-500 dark:text-slate-200 rounded font-bold text-[10px] border border-slate-100 dark:border-slate-700"
-                        >
-                          View
-                        </button>
-                        {v.voucherType === 'RECEIPT' && (
+                      <td className="py-4 px-3 font-black text-slate-900 dark:text-white text-right">₹{debitsSum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 pr-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end space-x-1 opacity-80 group-hover:opacity-100 transition-opacity">
                           <button
-                            onClick={() => triggerPrintReceipt(v)}
-                            className="px-2 py-1 bg-forest-50 hover:bg-forest-100 text-forest-750 rounded font-bold text-[10px] border border-forest-100"
+                            onClick={() => setSelectedVoucher(v)}
+                            className="px-2 py-1 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded font-semibold text-[10px] transition"
                           >
-                            Receipt
+                            View
                           </button>
-                        )}
-                        {v.voucherType === 'PAYMENT' && (
+                          {v.voucherType === 'RECEIPT' && (
+                            <button
+                              onClick={() => triggerPrintReceipt(v)}
+                              className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 rounded font-semibold text-[10px] transition"
+                            >
+                              Receipt
+                            </button>
+                          )}
+                          {v.voucherType === 'PAYMENT' && (
+                            <button
+                              onClick={() => triggerPrintPaymentSlip(v)}
+                              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-400 rounded font-semibold text-[10px] transition"
+                            >
+                              Print Slip
+                            </button>
+                          )}
                           <button
-                            onClick={() => triggerPrintPaymentSlip(v)}
-                            className="px-2 py-1 bg-saffron-50 hover:bg-saffron-100 text-saffron-750 rounded font-bold text-[10px] border border-saffron-100"
+                            onClick={() => handleEditVoucher(v)}
+                            className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 rounded font-semibold text-[10px] transition"
                           >
-                            Print Slip
+                            Edit
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleEditVoucher(v)}
-                          className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-750 rounded font-bold text-[10px]"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteVoucher(v.id)}
-                          className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-550 rounded font-bold text-[10px]"
-                        >
-                          Delete
-                        </button>
+                          <button
+                            onClick={() => handleDeleteVoucher(v.id)}
+                            className="px-2 py-1 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded font-semibold text-[10px] transition"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
               <tfoot>
-                <tr className="bg-slate-50 dark:bg-slate-900/60 font-black border-t-2 border-slate-200 dark:border-slate-700 text-slate-850 dark:text-white text-xs">
-                  <td colSpan={7} className="py-4 pl-3 text-right font-extrabold uppercase">Filtered Total Amount (कुल जोड़):</td>
-                  <td className="py-4 font-black text-forest-650 dark:text-forest-400">
-                    ₹{filteredVouchers.reduce((sum, v) => sum + (v.entries.find(e => e.isDebit)?.amount || 0), 0).toLocaleString()}
+                <tr className="bg-slate-50 dark:bg-slate-900/60 font-black border-t-2 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs">
+                  <td colSpan={7} className="py-4 px-3 text-right font-extrabold uppercase tracking-widest rounded-bl-xl">Filtered Total (कुल जोड़):</td>
+                  <td className="py-4 px-3 text-right font-black text-teal-600 dark:text-teal-400">
+                    ₹{filteredVouchers.reduce((sum, v) => sum + (v.entries.find(e => e.isDebit)?.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </td>
-                  <td></td>
+                  <td className="rounded-br-xl"></td>
                 </tr>
               </tfoot>
             </table>

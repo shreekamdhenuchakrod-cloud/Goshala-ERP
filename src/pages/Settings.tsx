@@ -15,12 +15,21 @@ interface SamitiMember {
   pan: string;
 }
 
-export const Settings: React.FC = () => {
+interface SettingsProps {
+  defaultTab?: 'org' | 'acct_prefs' | 'tax' | 'bank' | 'print' | 'ledgers' | 'cost_centers' | 'fys' | 'pay_modes' | 'security' | 'danger_zone' | 'members' | 'parties';
+}
+
+export const Settings: React.FC<SettingsProps> = ({ defaultTab = 'org' }) => {
   const { user } = useAuth();
   const { language, t } = useLanguage();
   const [showDangerZone, setShowDangerZone] = useState(false);
   
-  const [activeTab, setActiveTab] = useState<'org' | 'acct_prefs' | 'tax' | 'bank' | 'print' | 'ledgers' | 'cost_centers' | 'fys' | 'pay_modes' | 'security' | 'danger_zone' | 'members' | 'parties'>('org');
+  const [activeTab, setActiveTab] = useState<'org' | 'acct_prefs' | 'tax' | 'bank' | 'print' | 'ledgers' | 'cost_centers' | 'fys' | 'pay_modes' | 'security' | 'danger_zone' | 'members' | 'parties'>(defaultTab);
+
+  // Sync active tab when defaultTab prop changes (e.g., from sidebar navigation)
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
 
   // PIN states
   const [currentPinText, setCurrentPinText] = useState('');
@@ -872,7 +881,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={config.samitiName || ''}
                       onChange={(e) => setConfig({ ...config, samitiName: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -935,7 +944,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={config.mobileNumber || ''}
                       onChange={(e) => setConfig({ ...config, mobileNumber: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -944,7 +953,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={config.alternateMobile || ''}
                       onChange={(e) => setConfig({ ...config, alternateMobile: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -953,7 +962,7 @@ export const Settings: React.FC = () => {
                       type="email"
                       value={config.email || ''}
                       onChange={(e) => setConfig({ ...config, email: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -962,7 +971,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={config.website || ''}
                       onChange={(e) => setConfig({ ...config, website: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -971,7 +980,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={config.registrationNo || ''}
                       onChange={(e) => setConfig({ ...config, registrationNo: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -980,7 +989,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={config.panNo || ''}
                       onChange={(e) => setConfig({ ...config, panNo: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal font-mono uppercase"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-bold font-mono uppercase text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -989,7 +998,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={config.gstNo || ''}
                       onChange={(e) => setConfig({ ...config, gstNo: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal font-mono uppercase"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-bold font-mono uppercase text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -998,7 +1007,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={config.rtcDetails || ''}
                       onChange={(e) => setConfig({ ...config, rtcDetails: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                 </div>
@@ -1010,7 +1019,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={config.village || ''}
                       onChange={(e) => setConfig({ ...config, village: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1019,7 +1028,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={config.district || ''}
                       onChange={(e) => setConfig({ ...config, district: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1028,7 +1037,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={config.state || ''}
                       onChange={(e) => setConfig({ ...config, state: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                 </div>
@@ -1039,7 +1048,7 @@ export const Settings: React.FC = () => {
                     rows={2}
                     value={config.address || ''}
                     onChange={(e) => setConfig({ ...config, address: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl font-normal"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                   />
                 </div>
 
@@ -1398,7 +1407,7 @@ export const Settings: React.FC = () => {
                       rows={2}
                       value={config.printHeader || ''}
                       onChange={(e) => setConfig({ ...config, printHeader: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1407,7 +1416,7 @@ export const Settings: React.FC = () => {
                       rows={2}
                       value={config.printFooter || ''}
                       onChange={(e) => setConfig({ ...config, printFooter: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1416,7 +1425,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={config.authorizedSignatory || ''}
                       onChange={(e) => setConfig({ ...config, authorizedSignatory: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl font-normal"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1449,7 +1458,7 @@ export const Settings: React.FC = () => {
                             setConfig({ ...config, receiptTemplates: temps });
                           }}
                           placeholder="e.g. Received cash/bank payment for supervisor wages..."
-                          className="w-full px-3 py-2 border rounded-xl font-normal"
+                          className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                         />
                       </div>
                     ))}
@@ -1462,7 +1471,7 @@ export const Settings: React.FC = () => {
                           const temps = { ...config.receiptTemplates, default: e.target.value };
                           setConfig({ ...config, receiptTemplates: temps });
                         }}
-                        className="w-full px-3 py-2 border rounded-xl font-normal"
+                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                       />
                     </div>
                   </div>
@@ -1632,7 +1641,7 @@ export const Settings: React.FC = () => {
                           required
                           value={editingLedger.name}
                           onChange={(e) => setEditingLedger({ ...editingLedger, name: e.target.value })}
-                          className="w-full px-3 py-2 border rounded-xl font-normal text-slate-900"
+                          className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                         />
                       </div>
                       <div className="space-y-1">
@@ -1652,7 +1661,7 @@ export const Settings: React.FC = () => {
                           required
                           value={editingLedger.openingBalance}
                           onChange={(e) => setEditingLedger({ ...editingLedger, openingBalance: Number(e.target.value) })}
-                          className="w-full px-3 py-2 border rounded-xl font-normal text-slate-900"
+                          className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                         />
                       </div>
                       <div className="flex justify-end space-x-2 pt-2">
@@ -1773,7 +1782,7 @@ export const Settings: React.FC = () => {
                           required
                           value={editingCc.name}
                           onChange={(e) => setEditingCc({ ...editingCc, name: e.target.value })}
-                          className="w-full px-3 py-2 border rounded-xl font-normal text-slate-900"
+                          className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                         />
                       </div>
                       <div className="space-y-1">
@@ -1783,7 +1792,7 @@ export const Settings: React.FC = () => {
                           required
                           value={editingCc.allocatedBudget !== undefined ? editingCc.allocatedBudget : ((editingCc as any).budgetLimit || 0)}
                           onChange={(e) => setEditingCc({ ...editingCc, allocatedBudget: Number(e.target.value) })}
-                          className="w-full px-3 py-2 border rounded-xl font-normal text-slate-900"
+                          className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                         />
                       </div>
                       <div className="flex justify-end space-x-2 pt-2">
@@ -1966,7 +1975,7 @@ export const Settings: React.FC = () => {
                         value={val}
                         onChange={e => setter(e.target.value)}
                         placeholder={ph}
-                        className="w-full px-3 py-2 border rounded-xl font-normal text-slate-800 dark:text-white dark:bg-slate-900 text-xs"
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                       />
                     </div>
                   ))}
@@ -2050,7 +2059,7 @@ export const Settings: React.FC = () => {
                       value={partyName}
                       onChange={e => setPartyName(e.target.value)}
                       placeholder="e.g. Ramesh Kumar, Singhal Trading"
-                      className="w-full px-3 py-2 border rounded-xl font-normal text-slate-800 dark:text-white dark:bg-slate-900 text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -2073,7 +2082,7 @@ export const Settings: React.FC = () => {
                       value={partyPhone}
                       onChange={e => setPartyPhone(e.target.value)}
                       placeholder="9876543210"
-                      className="w-full px-3 py-2 border rounded-xl font-normal text-slate-800 dark:text-white dark:bg-slate-900 text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -2083,7 +2092,7 @@ export const Settings: React.FC = () => {
                       value={partyPan}
                       onChange={e => setPartyPan(e.target.value)}
                       placeholder="ABCDE1234F"
-                      className="w-full px-3 py-2 border rounded-xl font-normal text-slate-800 dark:text-white dark:bg-slate-900 text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -2093,7 +2102,7 @@ export const Settings: React.FC = () => {
                       value={partyAadhar}
                       onChange={e => setPartyAadhar(e.target.value)}
                       placeholder="1234 5678 9012"
-                      className="w-full px-3 py-2 border rounded-xl font-normal text-slate-800 dark:text-white dark:bg-slate-900 text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -2103,7 +2112,7 @@ export const Settings: React.FC = () => {
                       value={partyAddress}
                       onChange={e => setPartyAddress(e.target.value)}
                       placeholder="Village, Town, District"
-                      className="w-full px-3 py-2 border rounded-xl font-normal text-slate-800 dark:text-white dark:bg-slate-900 text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-forest-500/20 focus:border-forest-500 transition-all"
                     />
                   </div>
                 </div>
@@ -2159,10 +2168,17 @@ export const Settings: React.FC = () => {
                           .filter(p => p.name.toLowerCase().includes(partySearch.toLowerCase()) || (p.phone && p.phone.includes(partySearch)))
                           .map(p => {
                             const vouchers = GoshalaDB.getTable<any>('vouchers').filter(v => v.status === 'POSTED');
-                            const partyVouchers = vouchers.filter(v => v.entries.some((e: any) => e.subLedgerId === p.id) || v.narration?.toLowerCase().includes(p.name.toLowerCase()));
-                            const creditBillsSum = partyVouchers.filter(v => v.entries.some((e: any) => e.ledgerId === 'l-liab-creditors' && !e.isDebit)).reduce((s: number, v: any) => s + (v.entries.find((e: any) => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
-                            const paymentsSum = partyVouchers.filter(v => v.entries.some((e: any) => e.ledgerId === 'l-liab-creditors' && e.isDebit)).reduce((s: number, v: any) => s + (v.entries.find((e: any) => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
-                            const netOutstanding = (p.outstandingBalance || 0) + creditBillsSum - paymentsSum;
+                            let creditSum = 0;
+                            let debitSum = 0;
+                            vouchers.forEach(v => {
+                              v.entries.forEach((e: any) => {
+                                if (e.subLedgerId === p.id) {
+                                  if (e.isDebit) debitSum += e.amount;
+                                  else creditSum += e.amount;
+                                }
+                              });
+                            });
+                            const netOutstanding = (p.outstandingBalance || 0) + creditSum - debitSum;
 
                             return (
                               <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30">

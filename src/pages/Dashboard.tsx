@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { GoshalaDB } from '../db/db';
 import { Voucher, Ledger } from '../db/schema';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Landmark, Wallet, DollarSign, FileSpreadsheet, PlusCircle, Mic, MicOff } from 'lucide-react';
-
-import { useLanguage, formatBilingual } from '../hooks/useLanguage';
+import { useLanguage } from '../hooks/useLanguage';
+import { useAuth } from '../hooks/useAuth';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { TrendingUp, Landmark, Wallet, DollarSign, FileSpreadsheet, PlusCircle, Mic, MicOff, HeartHandshake, TrendingDown, ArrowUpRight, ArrowDownRight, ArrowRight, Building2 } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  
   // Metrics
   const [metrics, setMetrics] = useState({
     todayIncome: 0,
@@ -15,7 +17,9 @@ export const Dashboard: React.FC = () => {
     cashBalance: 0,
     bankBalance: 0,
     outstandingLoans: 0,
-    totalReceipts: 0,
+    totalDonations: 0,
+    totalIncome: 0,
+    totalExpense: 0,
     fixedAssetsVal: 0
   });
 
@@ -270,12 +274,19 @@ export const Dashboard: React.FC = () => {
       });
     });
 
-    // Sum all Income payments received in current year
-    let totalIncomesVal = 0;
+    // Sum all Income and Expense payments for current year
+    let totalIncomeVal = 0;
+    let totalExpenseVal = 0;
+    let totalDonationsVal = 0;
+
     vouchers.filter(v => v.status === 'POSTED' && isMatchFy(v)).forEach(v => {
       v.entries.forEach(e => {
         const led = ledgers.find(l => l.id === e.ledgerId);
-        if (led && led.type === 'INCOME') totalIncomesVal += e.amount;
+        if (led) {
+          if (led.type === 'INCOME') totalIncomeVal += e.amount;
+          if (led.type === 'EXPENSE') totalExpenseVal += e.amount;
+          if (led.id === 'l-inc-donations' || led.id === 'l-inc-grants') totalDonationsVal += e.amount;
+        }
       });
     });
 
@@ -298,7 +309,9 @@ export const Dashboard: React.FC = () => {
       cashBalance: cashL,
       bankBalance: bankL,
       outstandingLoans: loanOutstanding,
-      totalReceipts: totalIncomesVal,
+      totalDonations: totalDonationsVal,
+      totalIncome: totalIncomeVal,
+      totalExpense: totalExpenseVal,
       fixedAssetsVal: fixedAssetsValuation
     });
 
@@ -331,156 +344,257 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-forest-800 to-forest-600 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl shadow-forest-900/10">
-        <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-forest-500/20 rounded-full blur-3xl"></div>
-        <div className="relative z-10 space-y-2">
-          <h2 className="text-3xl font-extrabold tracking-tight">Goshala Simple Accounting Suite</h2>
-          <p className="text-forest-100 max-w-xl text-sm leading-relaxed">
-            Record payments, cash withdrawals, అचल संपत्ति (Fixed Assets), and loans. Dynamically prints balanced CA Trial Balance and Balance Sheet sheets.
-          </p>
+    <div className="space-y-6 pb-12">
+      
+      {/* Dashboard Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">Welcome back, {user.name} 👋</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Here's an overview of your organization's financial health.</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <button className="px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold rounded-lg text-sm transition shadow-xs">
+            Quick Entry
+          </button>
+          <button className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg text-sm shadow-md shadow-teal-900/20 transition flex items-center space-x-1.5">
+            <PlusCircle className="w-4 h-4" />
+            <span>Create Voucher</span>
+          </button>
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* KPI Cards Grid - 6 Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         
-        {/* Card 1: Cash Balance */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
-          <div className="space-y-2">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{t('cash_in_hand')}</span>
-            <p className="text-2xl font-black text-slate-800 dark:text-white">₹{metrics.cashBalance.toLocaleString()}</p>
-            <span className="text-[10px] text-forest-500 font-semibold bg-forest-50 dark:bg-forest-950/20 px-2 py-0.5 rounded-full inline-block">Daily Cash Register</span>
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Cash in Hand</span>
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <Wallet className="w-4 h-4" />
+            </div>
           </div>
-          <div className="w-12 h-12 bg-forest-50 dark:bg-forest-950/30 rounded-xl flex items-center justify-center text-forest-600 dark:text-forest-400">
-            <Wallet className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Card 2: Bank Balance */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
-          <div className="space-y-2">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{t('bank_accounts_bal')}</span>
-            <p className="text-2xl font-black text-slate-800 dark:text-white">₹{metrics.bankBalance.toLocaleString()}</p>
-            <span className="text-[10px] text-indigo-500 font-semibold bg-indigo-50 dark:bg-indigo-950/20 px-2 py-0.5 rounded-full inline-block">Accounts Linked</span>
-          </div>
-          <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-            <Landmark className="w-6 h-6" />
+          <div>
+            <p className="text-xl font-black text-slate-800 dark:text-white">₹{metrics.cashBalance.toLocaleString()}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Available Balance</p>
           </div>
         </div>
 
-        {/* Card 3: Total Receipts */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
-          <div className="space-y-2">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{t('total_donations')}</span>
-            <p className="text-2xl font-black text-slate-800 dark:text-white">₹{metrics.totalReceipts.toLocaleString()}</p>
-            <span className="text-[10px] text-emerald-500 font-semibold bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full inline-block">Grants, Dung Sales, Donations</span>
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Bank Balance</span>
+            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <Landmark className="w-4 h-4" />
+            </div>
           </div>
-          <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-            <DollarSign className="w-6 h-6" />
+          <div>
+            <p className="text-xl font-black text-slate-800 dark:text-white">₹{metrics.bankBalance.toLocaleString()}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">In Bank Accounts</p>
           </div>
         </div>
 
-        {/* Card 4: Outstanding Loans */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
-          <div className="space-y-2">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{t('outstanding_loans')}</span>
-            <p className="text-2xl font-black text-slate-850 dark:text-white text-red-500">₹{metrics.outstandingLoans.toLocaleString()}</p>
-            <span className="text-[10px] text-red-500 font-semibold bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded-full inline-block">With explanation of purpose</span>
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Total Donations</span>
+            <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-teal-600 dark:text-teal-400">
+              <HeartHandshake className="w-4 h-4" />
+            </div>
           </div>
-          <div className="w-12 h-12 bg-red-50 dark:bg-red-950/30 rounded-xl flex items-center justify-center text-red-650">
-            <Landmark className="w-6 h-6" />
+          <div>
+            <p className="text-xl font-black text-slate-800 dark:text-white">₹{metrics.totalDonations.toLocaleString()}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">This Financial Year</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Outst. Loans</span>
+            <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <TrendingDown className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xl font-black text-rose-600 dark:text-rose-400">₹{metrics.outstandingLoans.toLocaleString()}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Total Outstanding</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Total Expenses</span>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <ArrowDownRight className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xl font-black text-slate-800 dark:text-white">₹{metrics.totalExpense.toLocaleString()}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">This Financial Year</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Total Income</span>
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <ArrowUpRight className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xl font-black text-slate-800 dark:text-white">₹{metrics.totalIncome.toLocaleString()}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">This Financial Year</p>
           </div>
         </div>
 
       </div>
 
-      {/* Main Income Expense Chart & Fixed Assets Balance */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Main Analytics & Asset Valuation */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Income vs Expenses Chart */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4 lg:col-span-2">
-          <h3 className="text-sm font-bold text-slate-850 dark:text-slate-100 flex items-center space-x-2">
-            <TrendingUp className="w-5 h-5 text-forest-500" />
-            <span>Monthly Goshala Cash Flow (Income vs Expense)</span>
-          </h3>
+        {/* Analytics Chart */}
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-6 lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Income vs Expense Overview</h2>
+            <select className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold rounded-md px-2 py-1 text-slate-600 dark:text-slate-300">
+              <option>This Financial Year</option>
+            </select>
+          </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartsData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
-                <Tooltip cursor={{ fill: 'rgba(0, 0, 0, 0.02)' }} />
+              <AreaChart data={chartsData}>
+                <defs>
+                  <linearGradient id="colorInc" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0d9488" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#0d9488" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#e11d48" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#e11d48" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                 <Legend verticalAlign="top" height={36} iconType="circle" />
-                <Bar dataKey="Income" fill="#418b5c" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Expense" fill="#f79016" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Area type="monotone" dataKey="Income" stroke="#0d9488" strokeWidth={3} fillOpacity={1} fill="url(#colorInc)" />
+                <Area type="monotone" dataKey="Expense" stroke="#e11d48" strokeWidth={3} fillOpacity={1} fill="url(#colorExp)" />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
+          
+          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+            <div>
+              <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Total Income</p>
+              <p className="text-lg font-black text-slate-800 dark:text-white">₹{metrics.totalIncome.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Total Expense</p>
+              <p className="text-lg font-black text-slate-800 dark:text-white">₹{metrics.totalExpense.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Net Saving</p>
+              <p className={`text-lg font-black ${metrics.totalIncome >= metrics.totalExpense ? 'text-teal-600' : 'text-rose-600'}`}>
+                ₹{(metrics.totalIncome - metrics.totalExpense).toLocaleString()}
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Fixed Assets evaluation box */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm flex flex-col justify-between">
-          <div className="space-y-3">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Asset Valuation</span>
-            <h3 className="font-extrabold text-base text-slate-850 dark:text-white">अचल संपत्ति (Fixed Assets)</h3>
-            <p className="text-xs text-slate-500 leading-normal">Total value of Goshala infrastructure: sheds, water borewell pumps, tractors, and equipment.</p>
+        {/* Asset Valuation */}
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
+            <Building2 className="w-32 h-32" />
+          </div>
+          <div className="flex items-center justify-between mb-4 z-10">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Asset Valuation</h2>
+            <button className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center">
+              View Report <ArrowRight className="w-3 h-3 ml-1" />
+            </button>
           </div>
           
-          <div className="py-6 border-y border-slate-50 dark:border-slate-700/50 my-4 text-center">
-            <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Aggregate Value</span>
-            <span className="text-3xl font-black text-slate-850 dark:text-white">₹{metrics.fixedAssetsVal.toLocaleString()}</span>
+          <div className="space-y-1 mb-8 z-10">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">Fixed Assets (कुल संपत्ति)</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">Total value of Goshala infrastructure, sheds, water pumps, tractors, and equipment.</p>
           </div>
-
-          <div className="text-[10px] text-slate-400 flex items-center space-x-1.5 leading-normal bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl">
-            <span>• Seeded Tractor, Water Motor, and Shed assets.</span>
+          
+          <div className="mt-auto bg-slate-50 dark:bg-slate-900/50 rounded-xl p-5 z-10 border border-slate-100 dark:border-slate-700/50">
+            <span className="text-[10px] text-slate-500 block font-bold uppercase tracking-wider mb-1">Aggregate Value</span>
+            <span className="text-3xl font-black text-teal-700 dark:text-teal-400">₹{metrics.fixedAssetsVal.toLocaleString()}</span>
+            <p className="text-[10px] text-slate-400 mt-2 font-medium">As per current ledger balances</p>
           </div>
         </div>
-
       </div>
 
-      {/* Recent Transactions List */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700/60 shadow-sm space-y-4">
-        <h3 className="text-sm font-bold text-slate-850 dark:text-white">Recent Transactions Log</h3>
+      {/* Recent Vouchers */}
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Recent Vouchers</h2>
+          <button className="text-xs font-bold text-teal-600 hover:text-teal-700">View All</button>
+        </div>
+        
         <div className="overflow-x-auto w-full">
-          <table className="w-full text-left text-xs border-collapse min-w-[600px]">
+          {/* Strictly aligned semantic HTML table */}
+          <table className="w-full text-left text-xs whitespace-nowrap">
             <thead>
-              <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-semibold uppercase">
-                <th className="pb-3">{t('date') === 'तारीख' ? 'वाउचर सं.' : 'Voucher #'}</th>
-                <th className="pb-3">{t('date')}</th>
-                <th className="pb-3">{t('date') === 'तारीख' ? 'प्रकार' : 'Type'}</th>
-                <th className="pb-3">{t('narration')}</th>
-                <th className="pb-3">{t('amount')}</th>
-                <th className="pb-3">{t('status')}</th>
+              <tr className="border-b border-slate-200 dark:border-slate-700">
+                <th className="py-3 px-4 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Voucher #</th>
+                <th className="py-3 px-4 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Date</th>
+                <th className="py-3 px-4 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Particulars / Ledger</th>
+                <th className="py-3 px-4 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Party</th>
+                <th className="py-3 px-4 font-bold text-slate-500 uppercase tracking-wider text-[10px]">Type</th>
+                <th className="py-3 px-4 font-bold text-slate-500 uppercase tracking-wider text-[10px] text-right">Amount</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-slate-750 dark:text-slate-350">
-              {recentVouchers.map((v) => {
-                const totalAmt = v.entries.filter(e => e.isDebit).reduce((s, e) => s + e.amount, 0);
-                return (
-                  <tr key={v.id}>
-                    <td className="py-3.5 font-bold text-slate-850 dark:text-slate-150">{v.voucherNumber}</td>
-                    <td className="py-3.5">{v.date}</td>
-                    <td className="py-3.5">
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                        v.voucherType === 'RECEIPT' ? 'bg-forest-50 text-forest-650' :
-                        v.voucherType === 'PAYMENT' ? 'bg-saffron-50 text-saffron-650' :
-                        'bg-slate-100 text-slate-600'
-                      }`}>
-                        {v.voucherType}
-                      </span>
-                    </td>
-                    <td className="py-3.5 truncate max-w-sm" title={v.narration}>{v.narration}</td>
-                    <td className="py-3.5 font-bold">₹{totalAmt.toLocaleString()}</td>
-                    <td className="py-3.5">
-                      <span className="px-2.5 py-0.5 rounded bg-forest-500 text-white font-bold text-[9px]">
-                        {v.status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
+              {recentVouchers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                    <p className="text-sm font-semibold">No recent vouchers found</p>
+                    <p className="text-[10px] mt-1">Try creating a new voucher.</p>
+                  </td>
+                </tr>
+              ) : (
+                recentVouchers.map((v) => {
+                  const totalAmt = v.entries.filter(e => e.isDebit).reduce((s, e) => s + e.amount, 0);
+                  // Resolve Party Name
+                  let partyName = '-';
+                  const partyEntry = v.entries.find(e => e.subLedgerId);
+                  if (partyEntry) {
+                    const contacts = GoshalaDB.getTable<any>('contacts');
+                    const party = contacts.find((c: any) => c.id === partyEntry.subLedgerId);
+                    if (party) partyName = party.name;
+                  }
+
+                  // Main Ledger (particulars)
+                  const mainLedgerEntry = v.entries.find(e => e.isDebit) || v.entries[0];
+                  let mainLedgerName = '-';
+                  if (mainLedgerEntry) {
+                    const ledgers = GoshalaDB.getTable<any>('ledgers');
+                    const led = ledgers.find((l: any) => l.id === mainLedgerEntry.ledgerId);
+                    if (led) mainLedgerName = led.name;
+                  }
+
+                  return (
+                    <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-750/30 transition-colors group">
+                      <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">{v.voucherNumber}</td>
+                      <td className="py-3 px-4 font-medium">{new Date(v.date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                      <td className="py-3 px-4 font-medium max-w-[200px] truncate" title={mainLedgerName}>{mainLedgerName}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-600 dark:text-slate-400">{partyName}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-widest ${
+                          v.voucherType === 'RECEIPT' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                          v.voucherType === 'PAYMENT' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' :
+                          'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                        }`}>
+                          {v.voucherType}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-black text-slate-900 dark:text-white text-right">
+                        ₹{totalAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
