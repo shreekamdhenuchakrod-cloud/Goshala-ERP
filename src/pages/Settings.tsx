@@ -2159,7 +2159,7 @@ export const Settings: React.FC = () => {
                           .filter(p => p.name.toLowerCase().includes(partySearch.toLowerCase()) || (p.phone && p.phone.includes(partySearch)))
                           .map(p => {
                             const vouchers = GoshalaDB.getTable<any>('vouchers').filter(v => v.status === 'POSTED');
-                            const partyVouchers = vouchers.filter(v => v.narration?.toLowerCase().includes(p.name.toLowerCase()));
+                            const partyVouchers = vouchers.filter(v => v.entries.some(e => e.subLedgerId === p.id) || v.narration?.toLowerCase().includes(p.name.toLowerCase()));
                             const creditBillsSum = partyVouchers.filter(v => v.entries.some((e: any) => e.ledgerId === 'l-liab-creditors' && !e.isDebit)).reduce((s: number, v: any) => s + (v.entries.find((e: any) => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
                             const paymentsSum = partyVouchers.filter(v => v.entries.some((e: any) => e.ledgerId === 'l-liab-creditors' && e.isDebit)).reduce((s: number, v: any) => s + (v.entries.find((e: any) => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
                             const netOutstanding = (p.outstandingBalance || 0) + creditBillsSum - paymentsSum;

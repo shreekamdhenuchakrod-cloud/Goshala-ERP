@@ -1102,7 +1102,7 @@ export const VoucherSystem: React.FC = () => {
                 {selectedContactId && (() => {
                   const party = contacts.find((c: any) => c.id === selectedContactId);
                   if (!party) return null;
-                  const partyVouchers = vouchers.filter(v => v.status === 'POSTED' && (v.narration?.toLowerCase().includes(party.name.toLowerCase())));
+                  const partyVouchers = vouchers.filter(v => v.status === 'POSTED' && (v.entries.some(e => e.subLedgerId === party.id) || v.narration?.toLowerCase().includes(party.name.toLowerCase())));
                   const totalBills = partyVouchers.filter(v => v.entries.some(e => e.ledgerId === 'l-liab-creditors' && !e.isDebit)).reduce((s, v) => s + (v.entries.find(e => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
                   const totalPaid = partyVouchers.filter(v => v.entries.some(e => e.ledgerId === 'l-liab-creditors' && e.isDebit)).reduce((s, v) => s + (v.entries.find(e => e.ledgerId === 'l-liab-creditors')?.amount || 0), 0);
                   const outstanding = (party.outstandingBalance || 0) + totalBills - totalPaid;
