@@ -63,11 +63,18 @@ const notifySyncStatus = (status: 'synced' | 'syncing' | 'offline') => {
   window.dispatchEvent(new CustomEvent('goshala_sync_status', { detail: { status } }));
 };
 
+const sanitizeForFirestore = (data: any): any => {
+  if (data === undefined) return null;
+  return JSON.parse(JSON.stringify(data));
+};
+
 const syncTableToFirestore = (name: string, data: any) => {
   try {
     notifySyncStatus('syncing');
     const docRef = doc(db, 'goshala_erp', name);
-    setDoc(docRef, { items: data, updatedAt: Date.now() }, { merge: true })
+    const cleanData = sanitizeForFirestore(data);
+    const now = Date.now();
+    setDoc(docRef, { items: cleanData, updatedAt: now }, { merge: true })
       .then(() => notifySyncStatus('synced'))
       .catch(err => {
         console.warn(`Firestore sync warning [${name}]:`, err?.message || err);
@@ -416,6 +423,9 @@ export class GoshalaDB {
 
   static saveTable<T>(name: string, data: T[]): void {
     setStorageItem(`goshala_erp_${name}`, data);
+    try {
+      localStorage.setItem(`goshala_erp_${name}_updatedAt`, String(Date.now()));
+    } catch {}
     syncTableToFirestore(name, data);
   }
 
@@ -458,12 +468,59 @@ export class GoshalaDB {
           if (loadedCount >= 3) notifySyncStatus('synced');
 
           if (snapshot.exists()) {
-            const remoteItems = snapshot.data()?.items;
+            const remoteData = snapshot.data();
+            const remoteItems = remoteData?.items;
+            const remoteUpdatedAt = Number(remoteData?.updatedAt || 0);
+
             if (remoteItems !== undefined) {
-              const localItems = getStorageItem(`goshala_erp_${tableName}`, null);
-              if (JSON.stringify(localItems) !== JSON.stringify(remoteItems)) {
+              const localItems = getStorageItem<any[] | null>(`goshala_erp_${tableName}`, null);
+              const localUpdatedAt = Number(localStorage.getItem(`goshala_erp_${tableName}_updatedAt`) || 0);
+
+              if (localItems === null) {
                 setStorageItem(`goshala_erp_${tableName}`, remoteItems);
+                try {
+                  localStorage.setItem(`goshala_erp_${tableName}_updatedAt`, String(remoteUpdatedAt));
+                } catch {}
+                if (tableName === 'vouchers') {
+                  GoshalaDB.recalculateLedgers();
+                }
                 window.dispatchEvent(new CustomEvent('goshala_db_updated', { detail: { table: tableName } }));
+              } else if (JSON.stringify(localItems) !== JSON.stringify(remoteItems)) {
+                // Safeguard: Check if local has items with unique id that remote is missing
+                if (Array.isArray(localItems) && Array.isArray(remoteItems) && localItems.length > 0 && localItems[0]?.id) {
+                  const remoteIdSet = new Set(remoteItems.map((r: any) => r?.id).filter(Boolean));
+                  const unsyncedLocal = localItems.filter((l: any) => l?.id && !remoteIdSet.has(l.id));
+
+                  if (unsyncedLocal.length > 0) {
+                    // Local has newly created items not yet in remote! Merge to prevent data loss.
+                    const merged = [...remoteItems, ...unsyncedLocal];
+                    setStorageItem(`goshala_erp_${tableName}`, merged);
+                    try {
+                      localStorage.setItem(`goshala_erp_${tableName}_updatedAt`, String(Date.now()));
+                    } catch {}
+                    syncTableToFirestore(tableName, merged);
+                    if (tableName === 'vouchers') {
+                      GoshalaDB.recalculateLedgers();
+                    }
+                    window.dispatchEvent(new CustomEvent('goshala_db_updated', { detail: { table: tableName } }));
+                    return;
+                  }
+                }
+
+                // If remote has newer data or local was older, accept remote
+                if (remoteUpdatedAt >= localUpdatedAt || localUpdatedAt === 0) {
+                  setStorageItem(`goshala_erp_${tableName}`, remoteItems);
+                  try {
+                    localStorage.setItem(`goshala_erp_${tableName}_updatedAt`, String(remoteUpdatedAt));
+                  } catch {}
+                  if (tableName === 'vouchers') {
+                    GoshalaDB.recalculateLedgers();
+                  }
+                  window.dispatchEvent(new CustomEvent('goshala_db_updated', { detail: { table: tableName } }));
+                } else {
+                  // Local is strictly newer: push local data to Firestore
+                  syncTableToFirestore(tableName, localItems);
+                }
               }
             }
           }
@@ -598,7 +655,7 @@ export class GoshalaDB {
     // Save updated current balances for ledgers and bank accounts to LocalStorage ONLY (Do not force push derived data to Firebase)
     setStorageItem('goshala_erp_ledgers', ledgers);
     setStorageItem('goshala_erp_bank_accounts', bankAccounts);
-
+    
     // Sync Loans table outstanding amounts from accounting ledger postings
     const loans = this.getTable<Loan>('loans');
     loans.forEach(loan => {
@@ -653,10 +710,19 @@ export class GoshalaDB {
       vouchers[index] = v;
     } else {
       // New Voucher
-      // Generate Voucher Number
-      const count = vouchers.filter(item => item.voucherType === v.voucherType).length + 1;
+      // Generate Voucher Number based on the maximum existing sequence number
       const typeCode = v.voucherType.substring(0, 3).toUpperCase();
-      v.voucherNumber = `V-${typeCode}-${String(count).padStart(4, '0')}`;
+      const prefix = `V-${typeCode}-`;
+      let maxNum = 0;
+      vouchers.forEach(item => {
+        if (item.voucherNumber && item.voucherNumber.startsWith(prefix)) {
+          const numPart = parseInt(item.voucherNumber.substring(prefix.length), 10);
+          if (!isNaN(numPart) && numPart > maxNum) {
+            maxNum = numPart;
+          }
+        }
+      });
+      v.voucherNumber = `V-${typeCode}-${String(maxNum + 1).padStart(4, '0')}`;
       v.auditTrail = [{
         user: activeUser.name,
         role: activeUser.role,

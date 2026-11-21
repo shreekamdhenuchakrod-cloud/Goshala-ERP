@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useLanguage } from '../hooks/useLanguage';
-import { useAuth } from '../hooks/useAuth';
-import { GoshalaDB } from '../db/db';
 import {
   LayoutDashboard,
   Receipt,
@@ -11,12 +9,9 @@ import {
   Settings,
   X,
   LogOut,
-  Users,
-  FolderOpen,
-  Briefcase,
-  CreditCard,
-  FileCheck2,
-  LifeBuoy
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -24,6 +19,8 @@ interface SidebarProps {
   setActivePage: (page: string) => void;
   mobileOpen?: boolean;
   setMobileOpen?: (open: boolean) => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
   onLogout?: () => void;
 }
 
@@ -32,59 +29,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActivePage,
   mobileOpen = false,
   setMobileOpen,
-  onLogout
+  collapsed = false,
+  onToggleCollapse,
+  onLogout,
 }) => {
   const { t } = useLanguage();
-  const { user } = useAuth();
-  const [activeFy, setActiveFy] = useState<any>(null);
 
-  useEffect(() => {
-    const fyId = GoshalaDB.getActiveFyId();
-    const fys = GoshalaDB.getTable<any>('fys');
-    const fy = fys.find((f: any) => f.id === fyId);
-    if (fy) setActiveFy(fy);
-  }, []);
-
-  const menuItems = [
+  const financialItems = [
     { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard },
-    { id: 'vouchers', label: 'Vouchers & Entries', icon: Receipt },
-    { id: 'contra', label: 'Bank & Cash Book', icon: BookOpen },
-    { id: 'assets_loans', label: 'Assets & Loans', icon: Building2 },
-    { id: 'reports', label: 'CA Reports', icon: FileText },
-    { id: 'settings', label: 'Backup & Settings', icon: Settings }
+    { id: 'vouchers', label: t('vouchers'), icon: Receipt },
+    { id: 'contra', label: t('contra'), icon: BookOpen },
+    { id: 'assets_loans', label: t('assets_loans'), icon: Building2 },
+    { id: 'reports', label: t('reports'), icon: FileText },
   ];
 
-  const masterItems = [
-    { id: 'master-parties', label: 'Parties & Contacts', icon: Users },
-    { id: 'master-coa', label: 'Chart of Accounts', icon: FolderOpen },
-    { id: 'master-costcenters', label: 'Cost Centers', icon: Briefcase },
-    { id: 'master-paymodes', label: 'Payment Modes', icon: CreditCard },
-    { id: 'master-tax', label: 'Tax & Registrations', icon: FileCheck2 },
+  const systemItems = [
+    { id: 'settings', label: t('settings'), icon: Settings },
   ];
 
   const handleNavClick = (id: string) => {
     setActivePage(id);
     if (setMobileOpen) setMobileOpen(false);
-  };
-
-  const renderItem = (item: { id: string, label: string, icon: any }) => {
-    const Icon = item.icon;
-    // Handle specific active states for settings tabs matching the active page
-    const isActive = activePage === item.id;
-    return (
-      <button
-        key={item.id}
-        onClick={() => handleNavClick(item.id)}
-        className={`w-full flex items-center space-x-3.5 px-4 py-2.5 rounded-lg transition-all duration-150 text-left font-medium text-xs ${
-          isActive
-            ? 'bg-teal-600 text-white shadow shadow-teal-900/50'
-            : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-        }`}
-      >
-        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-        <span>{item.label}</span>
-      </button>
-    );
   };
 
   return (
@@ -93,99 +58,162 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {mobileOpen && (
         <div
           onClick={() => setMobileOpen && setMobileOpen(false)}
-          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-30 md:hidden animate-in fade-in duration-200"
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-40 md:hidden animate-in fade-in duration-150"
         />
       )}
 
-      {/* Sidebar Drawer */}
+      {/* Sidebar Container */}
       <aside
-        className={`w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 h-screen fixed left-0 top-0 z-40 transition-transform duration-300 ease-in-out md:translate-x-0 ${
+        className={`fixed left-0 top-0 h-screen z-50 flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 transition-all duration-200 ease-in-out md:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        } ${collapsed ? 'w-64 md:w-16' : 'w-64'}`}
       >
         {/* Brand Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-teal-400 flex items-center justify-center shadow-lg">
-              <span className="text-white font-black text-base">G</span>
+        <div className="h-16 px-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+              <ShieldCheck className="w-4 h-4" />
             </div>
-            <div>
-              <h1 className="text-white font-extrabold tracking-wider text-sm leading-tight">GOSHALA ERP</h1>
-              <span className="text-[10px] text-teal-400 font-semibold uppercase tracking-widest block">Simplified Financials</span>
+            <div className={`transition-opacity duration-150 ${collapsed ? 'md:hidden' : 'block'}`}>
+              <h2 className="text-xs font-bold tracking-tight text-slate-900 dark:text-slate-100 uppercase truncate">
+                Goshala ERP
+              </h2>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block font-medium">
+                Enterprise Ledger
+              </span>
             </div>
           </div>
+
+          {/* Desktop Collapse Toggle */}
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="hidden md:flex p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </button>
+          )}
 
           {/* Close button on mobile */}
           <button
             onClick={() => setMobileOpen && setMobileOpen(false)}
-            className="md:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+            title="Close menu"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Nav Menu */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-          
+        {/* Navigation Menu */}
+        <nav className="flex-1 overflow-y-auto px-2.5 py-4 space-y-6">
+          {/* Financials Section */}
           <div className="space-y-1">
-            {menuItems.map(renderItem)}
-          </div>
-
-          <div className="space-y-1">
-            <div className="px-4 py-2">
-              <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Master & Setup</p>
+            <div
+              className={`px-3 py-1 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider ${
+                collapsed ? 'md:hidden' : 'block'
+              }`}
+            >
+              Accounting
             </div>
-            {masterItems.map(renderItem)}
+
+            {financialItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activePage === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  title={collapsed ? item.label : undefined}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 select-none cursor-pointer ${
+                    isActive
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
+                  } ${collapsed ? 'md:justify-center md:px-0' : ''}`}
+                >
+                  <Icon
+                    className={`w-4 h-4 shrink-0 transition-colors ${
+                      isActive
+                        ? 'text-slate-900 dark:text-slate-100'
+                        : 'text-slate-400 dark:text-slate-500'
+                    }`}
+                  />
+                  <span className={`truncate ${collapsed ? 'md:hidden' : 'block'}`}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
+          {/* System Section */}
+          <div className="space-y-1">
+            <div
+              className={`px-3 py-1 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider ${
+                collapsed ? 'md:hidden' : 'block'
+              }`}
+            >
+              Administration
+            </div>
+
+            {systemItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activePage === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  title={collapsed ? item.label : undefined}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 select-none cursor-pointer ${
+                    isActive
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
+                  } ${collapsed ? 'md:justify-center md:px-0' : ''}`}
+                >
+                  <Icon
+                    className={`w-4 h-4 shrink-0 transition-colors ${
+                      isActive
+                        ? 'text-slate-900 dark:text-slate-100'
+                        : 'text-slate-400 dark:text-slate-500'
+                    }`}
+                  />
+                  <span className={`truncate ${collapsed ? 'md:hidden' : 'block'}`}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
-        {/* Footer Info & Logout Button */}
-        <div className="border-t border-slate-800 bg-slate-900/50 shrink-0">
-          <div className="px-5 py-4 space-y-3">
-            
-            {/* Financial Year Info */}
-            <div className="space-y-1">
-              <p className="text-xs font-bold text-teal-400">{activeFy ? activeFy.name.replace('fy-', 'FY ') : 'FY 2026-27'}</p>
-              <p className="text-[10px] text-slate-400 font-mono">
-                {activeFy ? `${new Date(activeFy.startDate).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})} - ${new Date(activeFy.endDate).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}` : '01 Apr 2026 - 31 Mar 2027'}
-              </p>
-            </div>
+        {/* Footer Section */}
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
+          {onLogout && (
+            <button
+              onClick={() => {
+                if (setMobileOpen) setMobileOpen(false);
+                onLogout();
+              }}
+              title="Logout / Lock Screen"
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer ${
+                collapsed ? 'md:justify-center md:px-0' : ''
+              }`}
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+              <span className={`truncate ${collapsed ? 'md:hidden' : 'block'}`}>
+                Lock Terminal
+              </span>
+            </button>
+          )}
 
-            <div className="h-px bg-slate-800/50 w-full" />
-
-            {/* Organization & User Info */}
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-bold text-slate-200 leading-tight">Shree Krishna Balram Goushala</p>
-                <p className="text-[10px] text-slate-500">Chakrod, Shajapur (M.P.)</p>
-              </div>
-              
-              <div>
-                <p className="text-xs font-semibold text-slate-300">{user?.name || 'Administrator'}</p>
-                <p className="text-[10px] text-slate-500">{user?.role || 'Goshala Treasurer'}</p>
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center justify-between space-x-2">
-              <button className="flex-1 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] font-semibold flex items-center justify-center space-x-1.5 transition">
-                <LifeBuoy className="w-3.5 h-3.5" />
-                <span>Support</span>
-              </button>
-              
-              {onLogout && (
-                <button
-                  onClick={() => {
-                    if (setMobileOpen) setMobileOpen(false);
-                    onLogout();
-                  }}
-                  className="py-2 px-3 bg-red-950/30 hover:bg-red-900/50 text-red-400 rounded-lg text-[10px] font-semibold flex items-center justify-center transition"
-                  title="Logout"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+          <div
+            className={`px-3 pt-1 text-[10px] text-slate-400 dark:text-slate-500 font-mono text-center ${
+              collapsed ? 'md:hidden' : 'block'
+            }`}
+          >
+            v2.4 Enterprise
           </div>
         </div>
       </aside>

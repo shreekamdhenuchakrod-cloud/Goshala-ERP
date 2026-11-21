@@ -49,8 +49,8 @@ export const DonationManagement: React.FC = () => {
         type: 'DONOR',
         name: form.donorName,
         phone: form.phone,
-        pan: form.pan || undefined,
-        aadhar: form.aadhar || undefined,
+        ...(form.pan ? { pan: form.pan } : {}),
+        ...(form.aadhar ? { aadhar: form.aadhar } : {}),
         outstandingBalance: 0,
         communicationHistory: []
       };

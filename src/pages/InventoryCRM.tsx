@@ -168,11 +168,11 @@ export const InventoryCRM: React.FC = () => {
       id: `c-${Date.now()}`,
       name: crmForm.name,
       phone: crmForm.phone,
-      email: crmForm.email || undefined,
+      ...(crmForm.email ? { email: crmForm.email } : {}),
       type: crmForm.type,
-      pan: crmForm.pan || undefined,
-      aadhar: crmForm.aadhar || undefined,
-      birthday: crmForm.birthday || undefined,
+      ...(crmForm.pan ? { pan: crmForm.pan } : {}),
+      ...(crmForm.aadhar ? { aadhar: crmForm.aadhar } : {}),
+      ...(crmForm.birthday ? { birthday: crmForm.birthday } : {}),
       outstandingBalance: 0,
       communicationHistory: []
     };

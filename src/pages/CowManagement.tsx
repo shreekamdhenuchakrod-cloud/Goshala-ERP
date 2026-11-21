@@ -50,7 +50,7 @@ export const CowManagement: React.FC = () => {
       gender: formData.gender as 'Male' | 'Female',
       birthDate: formData.birthDate || new Date().toISOString().split('T')[0],
       purchaseDate: formData.purchaseDate,
-      purchaseCost: Number(formData.purchaseCost) || undefined,
+      ...(Number(formData.purchaseCost) > 0 ? { purchaseCost: Number(formData.purchaseCost) } : {}),
       weight: Number(formData.weight) || 350,
       healthStatus: formData.healthStatus as any,
       pregnancyStatus: formData.pregnancyStatus as any,

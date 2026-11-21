@@ -1,24 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
 import { GoshalaDB } from '../db/db';
 import { FinancialYear } from '../db/schema';
-import { Sun, Moon, Bell, Globe, Menu, LogOut, CloudCheck, CloudOff, RefreshCw, Search } from 'lucide-react';
+import {
+  Sun,
+  Moon,
+  Bell,
+  Globe,
+  Menu,
+  LogOut,
+  Calendar,
+  AlertCircle,
+  CheckCircle2,
+  RefreshCw,
+  WifiOff,
+} from 'lucide-react';
 
 interface HeaderProps {
   darkMode: boolean;
   setDarkMode: (val: boolean) => void;
+  sidebarCollapsed?: boolean;
   onToggleMobileMenu?: () => void;
   onLogout?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleMobileMenu, onLogout }) => {
+export const Header: React.FC<HeaderProps> = ({
+  darkMode,
+  setDarkMode,
+  sidebarCollapsed = false,
+  onToggleMobileMenu,
+  onLogout,
+}) => {
   const { user } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const [fys, setFys] = useState<FinancialYear[]>([]);
   const [activeFy, setActiveFy] = useState<string>('');
   const [notifications, setNotifications] = useState<string[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline'>(() => {
     return (window as any)._goshala_sync_status || 'synced';
   });
@@ -27,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleM
     // Load Fys
     const allFys = GoshalaDB.getTable<FinancialYear>('fys');
     setFys(allFys);
-    
+
     const currentFyId = GoshalaDB.getActiveFyId();
     setActiveFy(currentFyId);
 
@@ -38,15 +59,17 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleM
 
     const cashL = ledgers.find((l: any) => l.id === 'l-cash');
     if (cashL && cashL.currentBalance < 0) {
-      alerts.push(`Audit Warning: Negative Cash balance (₹${cashL.currentBalance.toLocaleString()})`);
+      alerts.push(`Negative cash balance: ₹${Math.abs(cashL.currentBalance).toLocaleString()}`);
     }
 
     vouchers.forEach((v: any) => {
       if (v.status === 'POSTED') {
         const usesCash = v.entries.some((e: any) => e.ledgerId === 'l-cash');
-        const debAmt = v.entries.filter((e: any) => e.isDebit).reduce((s: number, e: any) => s + e.amount, 0);
+        const debAmt = v.entries
+          .filter((e: any) => e.isDebit)
+          .reduce((s: number, e: any) => s + e.amount, 0);
         if (usesCash && debAmt > 2000 && v.voucherType === 'PAYMENT') {
-          alerts.push(`Cash Limit Alert: Voucher ${v.voucherNumber} pays ₹${debAmt.toLocaleString()} in cash (exceeds ₹2,000 limit)`);
+          alerts.push(`Cash limit alert: Voucher ${v.voucherNumber} pays ₹${debAmt.toLocaleString()} (exceeds ₹2,000 limit)`);
         }
       }
     });
@@ -61,12 +84,26 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleM
     return () => window.removeEventListener('goshala_sync_status', handleSyncStatus);
   }, []);
 
+  // Close notifications on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNotifications]);
+
   const handleFyChange = (fyId: string) => {
-    const targetFy = fys.find(f => f.id === fyId);
+    const targetFy = fys.find((f) => f.id === fyId);
     if (targetFy && (targetFy.status === 'LOCKED' || targetFy.status === 'CLOSED')) {
-      alert(language === 'hi'
-        ? `⚠️ ध्यान दें: वित्तीय वर्ष (${targetFy.name}) अभी locked/closed है। इसमें नई एंट्री करने या बदलने के लिए आपको सेटिंग्स में जाकर इसे unlock करना होगा।`
-        : `⚠️ Notice: Financial Year (${targetFy.name}) is locked/closed. To add or edit entries, you must unlock it in Settings.`
+      alert(
+        language === 'hi'
+          ? `सूचना: वित्तीय वर्ष (${targetFy.name}) अभी लॉक/बंद है।`
+          : `Notice: Financial Year (${targetFy.name}) is locked/closed.`
       );
     }
     GoshalaDB.setActiveFyId(fyId);
@@ -75,124 +112,122 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleM
   };
 
   return (
-    <header className="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-3 md:px-6 fixed top-0 right-0 left-0 md:left-64 z-20 shadow-xs">
-      
-      {/* Left side: Mobile Menu Button & Financial Year Selector */}
-      <div className="flex items-center space-x-2">
+    <header
+      className={`h-16 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between px-4 sm:px-8 fixed top-0 right-0 z-30 transition-[left] duration-200 ${
+        sidebarCollapsed ? 'left-0 md:left-16' : 'left-0 md:left-64'
+      }`}
+    >
+      {/* Left side: Mobile Menu Toggle & Financial Year Selector */}
+      <div className="flex items-center gap-3">
         <button
           onClick={onToggleMobileMenu}
-          className="md:hidden p-2 rounded-xl text-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-none"
-          title="Toggle Navigation Menu"
+          className="md:hidden p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+          title="Open Navigation"
         >
-          <Menu className="w-6 h-6" />
+          <Menu className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center space-x-1.5 ml-2">
-          <select
-            value={activeFy}
-            onChange={(e) => handleFyChange(e.target.value)}
-            className="bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 border-none rounded-lg px-2.5 py-1 text-xs font-extrabold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 max-w-[130px] sm:max-w-none cursor-pointer transition-colors"
-          >
-            {fys.map(fy => (
-              <option key={fy.id} value={fy.id}>
-                {fy.name.replace('fy-', 'FY ')}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Center: Global Search */}
-      <div className="hidden md:flex flex-1 max-w-md mx-4">
-        <div className="relative w-full group">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-teal-500 transition-colors">
-            <Search className="h-4 w-4" />
-          </div>
-          <input
-            type="text"
-            placeholder="Search anything..."
-            className="block w-full pl-10 pr-12 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg leading-5 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:ring-1 focus:ring-teal-500 focus:border-teal-500 sm:text-sm transition-all shadow-xs"
-          />
-          <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
-            <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">Ctrl+K</span>
+        {/* Financial Year Selector */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span className="hidden sm:inline text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              FY:
+            </span>
+            <select
+              value={activeFy}
+              onChange={(e) => handleFyChange(e.target.value)}
+              className="bg-transparent border-none text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer pr-1"
+            >
+              {fys.map((fy) => (
+                <option key={fy.id} value={fy.id} className="bg-white dark:bg-slate-900">
+                  {fy.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
 
       {/* Right side Toolbar Controls */}
-      <div className="flex items-center space-x-2 sm:space-x-4">
-        
-        {/* Firebase Cloud Sync Indicator Badge */}
-        <div className="flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border shadow-2xs"
-          title={
-            syncStatus === 'synced' ? 'Real-time Firebase Cloud Sync Active (डेटाबेस ऑनलाइन सिंक है)' :
-            syncStatus === 'syncing' ? 'Syncing with Firebase Cloud... (डेटा सिंक हो रहा है)' :
-            'Offline mode - Changes saved locally (ऑफलाइन मोड)'
-          }
-        >
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Cloud Sync Status */}
+        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
           {syncStatus === 'synced' && (
-            <span className="flex items-center text-emerald-600 dark:text-emerald-400 space-x-1">
-              <CloudCheck className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline text-[10px]">Firebase Synced</span>
-            </span>
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="text-slate-600 dark:text-slate-400">Synced</span>
+            </>
           )}
           {syncStatus === 'syncing' && (
-            <span className="flex items-center text-amber-600 dark:text-amber-400 space-x-1 animate-pulse">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              <span className="hidden lg:inline text-[10px]">Syncing...</span>
-            </span>
+            <>
+              <RefreshCw className="w-3 h-3 text-amber-500 animate-spin" />
+              <span className="text-slate-600 dark:text-slate-400">Syncing</span>
+            </>
           )}
           {syncStatus === 'offline' && (
-            <span className="flex items-center text-red-500 dark:text-red-400 space-x-1">
-              <CloudOff className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline text-[10px]">Offline</span>
-            </span>
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+              <span className="text-slate-600 dark:text-slate-400">Offline</span>
+            </>
           )}
         </div>
 
         {/* Language switch */}
         <button
           onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')}
-          className="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center space-x-1"
-          title="Change Language"
+          className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors"
+          title="Switch Language"
         >
-          <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
-          <span className="text-[11px] font-bold font-mono">{language.toUpperCase()}</span>
+          <Globe className="w-3.5 h-3.5 text-slate-400" />
+          <span className="font-mono text-[11px] uppercase">{language}</span>
         </button>
 
         {/* Dark Mode toggle */}
         <button
           onClick={() => setDarkMode(!darkMode)}
-          className="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
-          title="Toggle Dark Mode"
+          className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center cursor-pointer transition-colors"
+          title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
-          {darkMode ? <Sun className="w-4 h-4 sm:w-5 sm:h-5" /> : <Moon className="w-4 h-4 sm:w-5 sm:h-5" />}
+          {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
 
-        {/* Notifications */}
-        <div className="relative">
+        {/* Notifications Popover */}
+        <div className="relative" ref={notifRef}>
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 relative"
+            className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center relative cursor-pointer transition-colors"
+            title="Notifications"
           >
-            <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+            <Bell className="w-4 h-4" />
             {notifications.length > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full" />
             )}
           </button>
-          
+
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-2 z-30">
-              <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-700 font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100">
-                Alerts & Notifications
+            <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 z-40 animate-in fade-in zoom-in-95 duration-100">
+              <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  System Alerts
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {notifications.length} {notifications.length === 1 ? 'alert' : 'alerts'}
+                </span>
               </div>
-              <div className="max-h-60 overflow-y-auto">
+              <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
                 {notifications.length === 0 ? (
-                  <p className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 text-center">No pending alerts</p>
+                  <div className="p-4 text-center text-xs text-slate-400">
+                    No active audit alerts
+                  </div>
                 ) : (
                   notifications.map((note, index) => (
-                    <div key={index} className="px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700/50 last:border-none text-xs text-slate-600 dark:text-slate-300 leading-normal">
-                      • {note}
+                    <div
+                      key={index}
+                      className="p-3 hover:bg-slate-50 dark:hover:bg-slate-850 text-xs text-slate-600 dark:text-slate-300 flex items-start gap-2.5 transition-colors"
+                    >
+                      <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                      <span className="leading-snug">{note}</span>
                     </div>
                   ))
                 )}
@@ -201,28 +236,30 @@ export const Header: React.FC<HeaderProps> = ({ darkMode, setDarkMode, onToggleM
           )}
         </div>
 
-        {/* Profile & Dropdown */}
-        <div className="flex items-center space-x-2 pl-1 sm:pl-2 border-l border-slate-200 dark:border-slate-700">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-900 dark:bg-slate-700 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
+        {/* User Profile */}
+        <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+          <div className="w-8 h-8 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 flex items-center justify-center font-bold text-xs">
             {user.name.charAt(0)}
           </div>
-          <div className="hidden xl:block text-left mr-2">
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-none">{user.name}</p>
-            <span className="text-[9px] text-teal-600 dark:text-teal-400 font-semibold uppercase tracking-wider block mt-0.5">
-              {user.role || 'Administrator'}
+          <div className="hidden lg:block text-left">
+            <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 leading-none">
+              {user.name}
+            </p>
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider block mt-0.5">
+              {language === 'hi' ? 'कोषाध्यक्ष' : 'Treasurer'}
             </span>
           </div>
+
           {onLogout && (
             <button
               onClick={onLogout}
-              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors flex items-center justify-center"
-              title="Logout"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Lock Terminal"
             >
               <LogOut className="w-4 h-4" />
             </button>
           )}
         </div>
-
       </div>
     </header>
   );

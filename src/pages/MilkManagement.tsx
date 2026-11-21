@@ -54,7 +54,7 @@ export const MilkManagement: React.FC = () => {
       id: `my-${Date.now()}`,
       date: new Date().toISOString().split('T')[0],
       shift: yieldForm.shift,
-      cowId: yieldForm.cowId || undefined,
+      ...(yieldForm.cowId ? { cowId: yieldForm.cowId } : {}),
       employeeId: yieldForm.employeeId,
       quantity: Number(yieldForm.quantity)
     };

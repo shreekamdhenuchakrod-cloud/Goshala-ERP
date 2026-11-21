@@ -298,7 +298,7 @@ export const AuditModule: React.FC = () => {
             
             <form onSubmit={handleRolloverSubmit} className="p-6 space-y-4 text-xs">
               <div className="p-3.5 bg-amber-55 text-amber-800 rounded-2xl space-y-1.5 leading-normal border border-amber-100">
-                <p className="font-bold">⚠️ Warning: Irreversible rollover operation.</p>
+                <p className="font-bold">Warning: Irreversible rollover operation.</p>
                 <p>All Income and Expense balances will aggregate into the Retained Earnings capital account, and current Asset/Liability balances will carry forward as opening balances to the target FY.</p>
               </div>
 

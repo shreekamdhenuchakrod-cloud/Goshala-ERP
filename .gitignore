@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# DB Dumps
+db_dump_*.json
+current_live_vouchers.json
